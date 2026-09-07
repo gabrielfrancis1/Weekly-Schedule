@@ -521,8 +521,24 @@ function parseStart(tStr){
   const first = tStr.split("–")[0].trim();
   if(first === "—") return null;
   let [h,m] = first.split(":").map(Number);
-  if(h < 6) h += 12; // schedule never runs before 6am except this catches stray PM-only entries
   return h*60+m;
+}
+
+// Times in the schedule have no AM/PM label (e.g. "6:10" for 6:10pm Art vs
+// "6:45" for 6:45am calls) — same hour can mean either. Since each day's
+// blocks always move forward in time, we resolve AM/PM by walking the list
+// in order: if a block's raw time would go backward relative to the block
+// before it, it must have rolled into the afternoon/evening, so add 12h.
+function resolveStarts(items){
+  let prevMin = -1;
+  return items.map(it=>{
+    const raw = parseStart(it.t);
+    if(raw === null) return null;
+    let resolved = raw;
+    if(prevMin !== -1 && raw < prevMin) resolved = raw + 720;
+    prevMin = resolved;
+    return resolved;
+  });
 }
 
 const now = new Date();
@@ -561,6 +577,7 @@ function render(){
   document.getElementById("meetingToggle").checked = meetingState;
 
   const items = getSchedule(selectedDay, meetingState);
+  const resolvedStarts = resolveStarts(items);
   const timeline = document.getElementById("timeline");
   timeline.innerHTML = "";
 
@@ -573,10 +590,10 @@ function render(){
   document.getElementById("dayTotal").innerHTML = totalLabel;
 
   items.forEach((item, idx)=>{
-    const startMin = parseStart(item.t);
+    const startMin = resolvedStarts[idx];
     const isNow = selectedDay===todayIdx && startMin!==null && (()=> {
       // highlight the block whose start time is the most recent one at or before now
-      const starts = items.map(i=>parseStart(i.t)).filter(v=>v!==null);
+      const starts = resolvedStarts.filter(v=>v!==null);
       const past = starts.filter(v=>v<=nowMinutes);
       const current = past.length ? Math.max(...past) : null;
       return current === startMin;
