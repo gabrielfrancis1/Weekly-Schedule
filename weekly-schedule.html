@@ -168,6 +168,83 @@
     font-weight:600;
     margin:0 0 2px 0;
   }
+  .title-row{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+  }
+  .task-check{
+    appearance:none;
+    -webkit-appearance:none;
+    width:19px;
+    height:19px;
+    border-radius:6px;
+    border:2px solid var(--rule);
+    background:var(--bg);
+    flex:0 0 auto;
+    margin-top:1px;
+    cursor:pointer;
+    position:relative;
+    transition:transform .12s, background .15s, border-color .15s;
+  }
+  .task-check:disabled{
+    cursor:not-allowed;
+    opacity:.35;
+  }
+  .task-check:checked{
+    background:var(--sage);
+    border-color:var(--sage);
+  }
+  .task-check:checked:before{
+    content:"✓";
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:700;
+    color:#16241d;
+  }
+  .task-check.pop{
+    animation:checkPop .38s ease;
+  }
+  @keyframes checkPop{
+    0%{transform:scale(1);}
+    35%{transform:scale(1.35);}
+    60%{transform:scale(0.92);}
+    100%{transform:scale(1);}
+  }
+  .burst-wrap{
+    position:relative;
+    display:inline-block;
+    width:0;
+    height:0;
+  }
+  .burst-dot{
+    position:absolute;
+    left:0;top:0;
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:var(--sage);
+    opacity:1;
+    animation:burstFly .55s ease-out forwards;
+  }
+  @keyframes burstFly{
+    to{
+      transform:translate(var(--bx), var(--by)) scale(0.3);
+      opacity:0;
+    }
+  }
+  .block.completed .card{
+    border-color:var(--sage);
+    background:linear-gradient(180deg, rgba(127,165,147,0.12), var(--bg-card) 60%);
+  }
+  .block.completed .title{
+    text-decoration:line-through;
+    color:var(--text-dim);
+  }
   .note{
     font-size:13px;
     color:var(--text-dim);
@@ -218,6 +295,95 @@
     outline:none;
     border-color:var(--accent-dim);
   }
+  .section-label{
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    color:var(--text-dim);
+    margin:12px 0 0 0;
+  }
+  .section-label:first-of-type{
+    margin-top:8px;
+  }
+  .checklist{
+    margin-top:8px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .checklist-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--bg);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    padding:6px 8px;
+  }
+  .checklist-item input[type="checkbox"]{
+    accent-color:var(--sage);
+    width:16px;
+    height:16px;
+    flex:0 0 auto;
+    cursor:pointer;
+  }
+  .checklist-item span{
+    flex:1;
+    font-size:13px;
+    line-height:1.35;
+    word-break:break-word;
+  }
+  .checklist-item.checked span{
+    text-decoration:line-through;
+    color:var(--text-dim);
+  }
+  .checklist-item button{
+    background:none;
+    border:none;
+    color:var(--text-dim);
+    font-size:15px;
+    line-height:1;
+    cursor:pointer;
+    padding:0 2px;
+    flex:0 0 auto;
+  }
+  .checklist-item button:hover{color:var(--text);}
+  .checklist-add{
+    display:flex;
+    gap:6px;
+    margin-top:2px;
+  }
+  .checklist-add input{
+    flex:1;
+    background:var(--bg);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    padding:7px 9px;
+  }
+  .checklist-add input:focus{
+    outline:none;
+    border-color:var(--accent-dim);
+  }
+  .checklist-add button{
+    background:var(--accent-dim);
+    border:none;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    border-radius:8px;
+    padding:0 14px;
+    cursor:pointer;
+  }
+  .sync-status{
+    font-size:11px;
+    color:var(--sage);
+    margin:4px 0 0 0;
+    min-height:14px;
+  }
   footer{
     padding:24px 20px 0 20px;
     font-size:12px;
@@ -231,6 +397,7 @@
 <header>
   <p class="eyebrow" id="dateLabel"></p>
   <h1 id="dayHeading">Schedule</h1>
+  <p class="sync-status" id="syncStatus"></p>
 </header>
 
 <nav id="tabs"></nav>
@@ -252,7 +419,12 @@
   Weekend art block and one workout are already folded into Sat.
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
+const SUPABASE_URL = "https://solbejvlfjicmmypixgl.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_t5W5uM1teq1n-q3EyJ5TjA_gqKQGS9x";
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function mwf(dayIdx){
@@ -411,56 +583,222 @@ function render(){
     })();
 
     const noteKey = getNoteKey(selectedDay, idx, item.title);
-    const savedNote = loadNote(noteKey);
+    const checklist = loadChecklist(noteKey);
+    const textKey = noteKey + ".text";
+    const savedText = loadNote(textKey);
+
+    const isToday = selectedDay === todayIdx;
+    const doneKey = getDoneKey(idx, item.title);
+    const isDone = isToday && loadDone(doneKey);
 
     const block = document.createElement("div");
-    block.className = "block" + (isNow ? " now" : "");
+    block.className = "block" + (isNow ? " now" : "") + (isDone ? " completed" : "");
     block.innerHTML = `
       <div class="rail"><div class="dot"></div></div>
       <div>
         <div class="time">${item.t}</div>
         <div class="card">
-          <p class="title">${item.title}${isNow ? '<span class="now-tag">NOW</span>' : ''}</p>
+          <div class="title-row">
+            <input type="checkbox" class="task-check" ${isDone ? "checked" : ""} ${isToday ? "" : "disabled"} title="${isToday ? "Mark done" : "Only today's tasks can be marked done"}">
+            <p class="title">${item.title}${isNow ? '<span class="now-tag">NOW</span>' : ''}</p>
+          </div>
           ${item.note ? `<p class="note">${item.note}</p>` : ""}
           <details class="note-drop">
-            <summary>${savedNote ? "Note" : "Add note"}</summary>
-            <textarea class="note-input" data-key="${noteKey}" placeholder="Type a note for this…">${escapeHtml(savedNote)}</textarea>
+            <summary>${sectionSummary(checklist, savedText)}</summary>
+            <p class="section-label">Notes</p>
+            <textarea class="note-input" placeholder="Type a note for this…">${escapeHtml(savedText)}</textarea>
+            <p class="section-label">Checklist</p>
+            <div class="checklist" data-key="${noteKey}"></div>
+            <div class="checklist-add">
+              <input type="text" class="checklist-new" placeholder="Add a task and press Enter">
+              <button type="button" class="checklist-add-btn">Add</button>
+            </div>
           </details>
         </div>
       </div>`;
     timeline.appendChild(block);
 
-    const textarea = block.querySelector(".note-input");
-    const summary = block.querySelector(".note-drop summary");
-    textarea.addEventListener("input", ()=>{
-      saveNote(noteKey, textarea.value);
-      summary.textContent = textarea.value ? "Note" : "Add note";
+    renderChecklist(block, noteKey, checklist);
+
+    const noteTextarea = block.querySelector(".note-input");
+    noteTextarea.addEventListener("input", ()=>{
+      saveNote(textKey, noteTextarea.value);
+      block.querySelector(".note-drop summary").textContent = sectionSummary(loadChecklist(noteKey), noteTextarea.value);
+    });
+
+    const taskCheck = block.querySelector(".task-check");
+    taskCheck.addEventListener("change", ()=>{
+      const checked = taskCheck.checked;
+      saveNote(doneKey, checked ? "1" : "");
+      block.classList.toggle("completed", checked);
+      if(checked){
+        taskCheck.classList.remove("pop");
+        void taskCheck.offsetWidth; // restart animation
+        taskCheck.classList.add("pop");
+        burst(taskCheck);
+      }
+    });
+
+    const newInput = block.querySelector(".checklist-new");
+    const addBtn = block.querySelector(".checklist-add-btn");
+    const addItem = ()=>{
+      const text = newInput.value.trim();
+      if(!text) return;
+      const current = loadChecklist(noteKey);
+      current.push({ id: Date.now() + Math.random().toString(16).slice(2), text, done:false });
+      saveChecklist(noteKey, current);
+      newInput.value = "";
+      renderChecklist(block, noteKey, current);
+      block.querySelector(".note-drop summary").textContent = sectionSummary(current, noteTextarea.value);
+    };
+    addBtn.addEventListener("click", addItem);
+    newInput.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter"){ e.preventDefault(); addItem(); }
     });
   });
 }
 
+function sectionSummary(items, text){
+  const parts = [];
+  if(text && text.trim()) parts.push("Note");
+  if(items.length){
+    const done = items.filter(i=>i.done).length;
+    parts.push(`Checklist (${done}/${items.length})`);
+  }
+  return parts.length ? parts.join(" · ") : "Add note or checklist";
+}
+
+function renderChecklist(block, noteKey, items){
+  const wrap = block.querySelector(".checklist");
+  wrap.innerHTML = items.map(item=>`
+    <div class="checklist-item${item.done ? " checked" : ""}" data-id="${item.id}">
+      <input type="checkbox" ${item.done ? "checked" : ""}>
+      <span>${escapeHtml(item.text)}</span>
+      <button type="button" title="Remove">×</button>
+    </div>
+  `).join("");
+
+  const getText = ()=> block.querySelector(".note-input").value;
+
+  wrap.querySelectorAll(".checklist-item").forEach(row=>{
+    const id = row.dataset.id;
+    const cb = row.querySelector('input[type="checkbox"]');
+    const delBtn = row.querySelector("button");
+    cb.addEventListener("change", ()=>{
+      const current = loadChecklist(noteKey);
+      const target = current.find(i=>String(i.id)===id);
+      if(target) target.done = cb.checked;
+      saveChecklist(noteKey, current);
+      row.classList.toggle("checked", cb.checked);
+      block.querySelector(".note-drop summary").textContent = sectionSummary(current, getText());
+    });
+    delBtn.addEventListener("click", ()=>{
+      const current = loadChecklist(noteKey).filter(i=>String(i.id)!==id);
+      saveChecklist(noteKey, current);
+      renderChecklist(block, noteKey, current);
+      block.querySelector(".note-drop summary").textContent = sectionSummary(current, getText());
+    });
+  });
+}
+
+function burst(el){
+  const rect = el.getBoundingClientRect();
+  const wrap = document.createElement("div");
+  wrap.className = "burst-wrap";
+  wrap.style.position = "fixed";
+  wrap.style.left = (rect.left + rect.width/2) + "px";
+  wrap.style.top = (rect.top + rect.height/2) + "px";
+  document.body.appendChild(wrap);
+  const n = 7;
+  for(let i=0;i<n;i++){
+    const dot = document.createElement("div");
+    dot.className = "burst-dot";
+    const angle = (Math.PI*2 / n) * i;
+    const dist = 20 + Math.random()*10;
+    dot.style.setProperty("--bx", Math.cos(angle)*dist + "px");
+    dot.style.setProperty("--by", Math.sin(angle)*dist + "px");
+    wrap.appendChild(dot);
+  }
+  setTimeout(()=> wrap.remove(), 650);
+}
+
 // Notes are keyed by day + meeting toggle state + block index, so each section
 // keeps its own note independent of which day/toggle you're viewing.
+// All notes are cached locally after the initial fetch, then kept in sync with
+// Supabase so the same notes show up on every device that opens this link.
+let noteCache = {};
+const saveTimers = {};
+
 function getNoteKey(dayIdx, idx, title){
   return `weeklySchedule.note.${dayIdx}.${meetingState ? 1 : 0}.${idx}.${title}`;
 }
 
 function loadNote(key){
+  return noteCache[key] || "";
+}
+
+function loadChecklist(key){
+  const raw = noteCache[key];
+  if(!raw) return [];
   try{
-    return localStorage.getItem(key) || "";
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch(e){
-    return "";
+    return [];
+  }
+}
+
+function saveChecklist(key, items){
+  saveNote(key, items.length ? JSON.stringify(items) : "");
+}
+
+function todayDateStr(){
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,"0");
+  const d = String(now.getDate()).padStart(2,"0");
+  return `${y}-${m}-${d}`;
+}
+
+function getDoneKey(idx, title){
+  return `weeklySchedule.done.${todayDateStr()}.${idx}.${title}`;
+}
+
+function loadDone(key){
+  return noteCache[key] === "1";
+}
+
+async function loadAllNotes(){
+  const { data, error } = await supabaseClient.from("notes").select("note_key, content");
+  if(!error && data){
+    noteCache = {};
+    data.forEach(row=>{ noteCache[row.note_key] = row.content; });
   }
 }
 
 function saveNote(key, value){
+  noteCache[key] = value;
+  clearTimeout(saveTimers[key]);
+  setSyncStatus("Saving…");
+  saveTimers[key] = setTimeout(()=> saveNoteRemote(key, value), 600);
+}
+
+async function saveNoteRemote(key, value){
   try{
     if(value){
-      localStorage.setItem(key, value);
+      await supabaseClient.from("notes").upsert({ note_key:key, content:value }, { onConflict:"note_key" });
     } else {
-      localStorage.removeItem(key);
+      await supabaseClient.from("notes").delete().eq("note_key", key);
     }
-  } catch(e){ /* storage unavailable — notes just won't persist */ }
+    setSyncStatus("Saved");
+    setTimeout(()=> setSyncStatus(""), 1500);
+  } catch(e){
+    setSyncStatus("Couldn't sync — check connection");
+  }
+}
+
+function setSyncStatus(text){
+  const el = document.getElementById("syncStatus");
+  if(el) el.textContent = text;
 }
 
 function escapeHtml(str){
@@ -476,7 +814,19 @@ function fullDayName(idx){
   return names[idx];
 }
 
-render();
+async function init(){
+  document.getElementById("dayTotal").textContent = "Loading notes…";
+  await loadAllNotes();
+  render();
+}
+
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "visible"){
+    loadAllNotes().then(render);
+  }
+});
+
+init();
 </script>
 
 </body>
