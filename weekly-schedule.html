@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Schedule</title>
+<style>
+  :root{
+    --bg:#1B2430;
+    --bg-card:#232D3D;
+    --bg-card-hi:#2B3648;
+    --rule:#37455A;
+    --text:#EDE6D6;
+    --text-dim:#9AA6B2;
+    --accent:#E8A33D;
+    --accent-dim:#8A6A38;
+    --sage:#7FA593;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:0 0 48px 0;
+  }
+  header{
+    padding:28px 20px 18px 20px;
+  }
+  .eyebrow{
+    font-size:13px;
+    color:var(--text-dim);
+    margin:0 0 4px 0;
+  }
+  h1{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:600;
+    font-size:26px;
+    margin:0;
+    letter-spacing:0.2px;
+  }
+  nav{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding:0 20px 6px 20px;
+    scrollbar-width:none;
+  }
+  nav::-webkit-scrollbar{display:none;}
+  .tab{
+    flex:0 0 auto;
+    padding:9px 14px;
+    border-radius:20px;
+    background:var(--bg-card);
+    color:var(--text-dim);
+    font-size:14px;
+    font-weight:600;
+    border:1px solid var(--rule);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .tab.active{
+    background:var(--accent);
+    color:#22262b;
+    border-color:var(--accent);
+  }
+  main{
+    padding:18px 20px 0 20px;
+  }
+  .day-total{
+    font-size:13px;
+    color:var(--text-dim);
+    margin:0 0 18px 0;
+  }
+  .day-total strong{color:var(--text);}
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--bg-card);
+    border:1px solid var(--rule);
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:20px;
+  }
+  .toggle-row span{font-size:14px;}
+  .switch{
+    position:relative;
+    width:44px;
+    height:26px;
+    flex:0 0 auto;
+  }
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{
+    position:absolute;top:0;left:0;right:0;bottom:0;
+    background:var(--rule);
+    border-radius:26px;
+    transition:.15s;
+    cursor:pointer;
+  }
+  .slider:before{
+    content:"";
+    position:absolute;
+    height:20px;width:20px;
+    left:3px;top:3px;
+    background:var(--text);
+    border-radius:50%;
+    transition:.15s;
+  }
+  input:checked + .slider{background:var(--accent-dim);}
+  input:checked + .slider:before{transform:translateX(18px);background:var(--accent);}
+
+  .timeline{
+    position:relative;
+    padding-left:2px;
+  }
+  .block{
+    display:grid;
+    grid-template-columns:64px 1fr;
+    gap:14px;
+    position:relative;
+    padding-bottom:22px;
+  }
+  .block:last-child{padding-bottom:4px;}
+  .rail{
+    position:relative;
+    display:flex;
+    justify-content:center;
+  }
+  .rail:before{
+    content:"";
+    position:absolute;
+    top:16px;
+    bottom:-22px;
+    width:1px;
+    background:var(--rule);
+  }
+  .block:last-child .rail:before{display:none;}
+  .dot{
+    width:9px;height:9px;
+    border-radius:50%;
+    background:var(--sage);
+    margin-top:5px;
+    flex:0 0 auto;
+    z-index:1;
+  }
+  .block.now .dot{background:var(--accent);box-shadow:0 0 0 4px rgba(232,163,61,0.22);}
+  .time{
+    font-size:12px;
+    color:var(--text-dim);
+    text-align:left;
+    padding-top:1px;
+    line-height:1.35;
+  }
+  .card{
+    background:var(--bg-card);
+    border:1px solid var(--rule);
+    border-radius:12px;
+    padding:12px 14px;
+  }
+  .block.now .card{
+    background:var(--bg-card-hi);
+    border-color:var(--accent-dim);
+  }
+  .title{
+    font-size:15px;
+    font-weight:600;
+    margin:0 0 2px 0;
+  }
+  .note{
+    font-size:13px;
+    color:var(--text-dim);
+    margin:0;
+    line-height:1.4;
+  }
+  .now-tag{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    color:var(--accent);
+    margin-left:8px;
+  }
+  .note-drop{
+    margin-top:8px;
+  }
+  .note-drop summary{
+    font-size:12px;
+    font-weight:600;
+    color:var(--sage);
+    cursor:pointer;
+    list-style:none;
+    display:inline-block;
+  }
+  .note-drop summary::-webkit-details-marker{display:none;}
+  .note-drop summary:before{
+    content:"▸ ";
+    font-size:10px;
+  }
+  .note-drop[open] summary:before{
+    content:"▾ ";
+  }
+  .note-input{
+    display:block;
+    width:100%;
+    margin-top:8px;
+    background:var(--bg);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    padding:8px 10px;
+    resize:vertical;
+    min-height:44px;
+  }
+  .note-input:focus{
+    outline:none;
+    border-color:var(--accent-dim);
+  }
+  footer{
+    padding:24px 20px 0 20px;
+    font-size:12px;
+    color:var(--text-dim);
+    line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow" id="dateLabel"></p>
+  <h1 id="dayHeading">Schedule</h1>
+</header>
+
+<nav id="tabs"></nav>
+
+<main>
+  <div class="toggle-row" id="meetingToggleRow" style="display:none;">
+    <span>Meeting tonight</span>
+    <label class="switch">
+      <input type="checkbox" id="meetingToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+  <p class="day-total" id="dayTotal"></p>
+  <div class="timeline" id="timeline"></div>
+</main>
+
+<footer>
+  Tue/Thu meeting rotates — flip the toggle on whichever day it lands this week.<br>
+  Weekend art block and one workout are already folded into Sat.
+</footer>
+
+<script>
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function mwf(dayIdx){
+  return [
+    {t:"6:00", title:"Wake up"},
+    {t:"6:45–7:45", title:"Morning calls", note:"6:45, 7:00, 7:30"},
+    {t:"7:55–8:25", title:"Breakfast / coffee"},
+    {t:"8:35–8:55", title:"Guitar practice"},
+    {t:"8:55–9:15", title:"Memory exercises"},
+    {t:"9:15–9:35", title:"Writing"},
+    {t:"9:45–12:00", title:"Work"},
+    {t:"12:00–12:45", title:"Workout"},
+    {t:"12:45–5:00", title:"Work", note:"Lunch + additional calls happen inside this block"},
+    {t:"5:00–5:30", title: dayIdx===1 ? "Cleaning/Travel Home" : "Cleaning"},
+    {t:"5:30–6:00", title:"Dinner"},
+    {t:"6:10–8:10", title:"Art"},
+    {t:"8:20–8:50", title:"Free time"},
+    {t:"9:00", title:"Bed — reading only"},
+  ];
+}
+
+function tuesday(meeting){
+  const base = [
+    {t:"6:00", title:"Wake up"},
+    {t:"6:30–7:15", title:"Phone calls"},
+    {t:"7:15–8:00", title:"Travel / additional calls"},
+    {t:"8:00–8:20", title:"Writing"},
+    {t:"8:20–8:40", title:"Memory exercises"},
+    {t:"8:40–9:15", title:"Optional", note:"Work, art, or a friend meetup"},
+    {t:"9:15–9:30", title:"Travel"},
+    {t:"9:30–10:15", title:"Therapy"},
+    {t:"10:15–10:45", title:"Travel home"},
+    {t:"10:45–5:00", title:"Work", note:"Lunch + additional calls happen inside this block"},
+  ];
+  if(!meeting) base.push({t:"5:00–5:30", title:"Cleaning"});
+  base.push({t: meeting ? "5:00–5:30" : "5:30–6:00", title:"Dinner"});
+  if(meeting){
+    base.push({t:"6:00–8:30", title:"Meeting", note:"Travel + meeting + travel back — calls & free time happen during the drive"});
+    base.push({t:"8:30–9:00", title:"Wind down"});
+  } else {
+    base.push({t:"6:00–8:00", title:"Art"});
+    base.push({t:"8:00–8:30", title:"Free time"});
+  }
+  base.push({t:"9:00", title:"Bed — reading only"});
+  return base;
+}
+
+function thursday(meeting){
+  const base = [
+    {t:"6:00", title:"Wake up"},
+    {t:"6:30–7:15", title:"Morning calls", note:"6:30, 6:45, 7:00"},
+    {t:"7:25–7:55", title:"Breakfast / coffee"},
+  ];
+  if(!meeting) base.push({t:"8:05–8:25", title:"Guitar practice"});
+  base.push({t: !meeting ? "8:25–8:45" : "7:55–8:15", title:"Memory exercises"});
+  base.push({t: !meeting ? "8:45–9:05" : "8:15–8:35", title:"Writing"});
+  base.push({t:"9:00–5:00", title:"Work", note:"Lunch + additional calls happen inside this block"});
+  if(!meeting) base.push({t:"5:15–5:45", title:"Cleaning"});
+  base.push({t: meeting ? "5:00–5:30" : "5:45–6:15", title:"Dinner"});
+  if(meeting){
+    base.push({t:"6:30–9:00", title:"Meeting", note:"Travel + meeting + travel back — calls & free time happen during the drive. No cushion before bed tonight."});
+  } else {
+    base.push({t:"6:15–9:00", title:"Open", note:"Free time, rest, or extra work toward your weekly hours"});
+  }
+  base.push({t:"9:00", title:"Bed — reading only"});
+  return base;
+}
+
+const SAT = [
+  {t:"9:00–9:45", title:"Workout"},
+  {t:"10:00–11:30", title:"Art"},
+  {t:"11:30–11:50", title:"Writing"},
+  {t:"—", title:"Otherwise open"},
+  {t:"9:00", title:"Bed — reading only"},
+];
+
+const SUN = [
+  {t:"10:00–10:20", title:"Writing"},
+  {t:"—", title:"Otherwise open / rest"},
+  {t:"9:00", title:"Bed — reading only"},
+];
+
+function getSchedule(dayIdx, meeting){
+  switch(dayIdx){
+    case 1: case 3: case 5: return mwf(dayIdx); // Mon Wed Fri
+    case 2: return tuesday(meeting);  // Tue
+    case 4: return thursday(meeting);  // Thu
+    case 6: return SAT;
+    case 0: return SUN;
+  }
+}
+
+function parseStart(tStr){
+  const first = tStr.split("–")[0].trim();
+  if(first === "—") return null;
+  let [h,m] = first.split(":").map(Number);
+  if(h < 6) h += 12; // schedule never runs before 6am except this catches stray PM-only entries
+  return h*60+m;
+}
+
+const now = new Date();
+const todayIdx = now.getDay();
+const nowMinutes = now.getHours()*60 + now.getMinutes();
+
+let selectedDay = todayIdx;
+let meetingState = false;
+
+const tabsEl = document.getElementById("tabs");
+const order = [1,2,3,4,5,6,0]; // Mon..Sun
+order.forEach(idx=>{
+  const btn = document.createElement("div");
+  btn.className = "tab" + (idx===selectedDay ? " active" : "");
+  btn.textContent = DAYS[idx];
+  btn.dataset.idx = idx;
+  btn.onclick = ()=>{ selectedDay = idx; render(); };
+  tabsEl.appendChild(btn);
+});
+
+document.getElementById("meetingToggle").addEventListener("change", (e)=>{
+  meetingState = e.target.checked;
+  render();
+});
+
+function render(){
+  [...tabsEl.children].forEach(b=>{
+    b.classList.toggle("active", Number(b.dataset.idx)===selectedDay);
+  });
+
+  document.getElementById("dayHeading").textContent = fullDayName(selectedDay);
+  document.getElementById("dateLabel").textContent = selectedDay===todayIdx ? "Today" : "Reference";
+
+  const toggleRow = document.getElementById("meetingToggleRow");
+  toggleRow.style.display = (selectedDay===2 || selectedDay===4) ? "flex" : "none";
+  document.getElementById("meetingToggle").checked = meetingState;
+
+  const items = getSchedule(selectedDay, meetingState);
+  const timeline = document.getElementById("timeline");
+  timeline.innerHTML = "";
+
+  const workBlocks = items.filter(i=>i.title==="Work").length;
+  let totalLabel = "";
+  if(selectedDay===1||selectedDay===3||selectedDay===5) totalLabel = "~6.5 hrs work · art 2h · workout 45m";
+  else if(selectedDay===2||selectedDay===4) totalLabel = meetingState ? "8 hrs work · meeting evening" : "8 hrs work · open evening";
+  else if(selectedDay===6) totalLabel = "1 of 4 workouts + 1 of 4 art blocks live here";
+  else totalLabel = "Rest day · writing only";
+  document.getElementById("dayTotal").innerHTML = totalLabel;
+
+  items.forEach((item, idx)=>{
+    const startMin = parseStart(item.t);
+    const isNow = selectedDay===todayIdx && startMin!==null && (()=> {
+      // highlight the block whose start time is the most recent one at or before now
+      const starts = items.map(i=>parseStart(i.t)).filter(v=>v!==null);
+      const past = starts.filter(v=>v<=nowMinutes);
+      const current = past.length ? Math.max(...past) : null;
+      return current === startMin;
+    })();
+
+    const noteKey = getNoteKey(selectedDay, idx, item.title);
+    const savedNote = loadNote(noteKey);
+
+    const block = document.createElement("div");
+    block.className = "block" + (isNow ? " now" : "");
+    block.innerHTML = `
+      <div class="rail"><div class="dot"></div></div>
+      <div>
+        <div class="time">${item.t}</div>
+        <div class="card">
+          <p class="title">${item.title}${isNow ? '<span class="now-tag">NOW</span>' : ''}</p>
+          ${item.note ? `<p class="note">${item.note}</p>` : ""}
+          <details class="note-drop">
+            <summary>${savedNote ? "Note" : "Add note"}</summary>
+            <textarea class="note-input" data-key="${noteKey}" placeholder="Type a note for this…">${escapeHtml(savedNote)}</textarea>
+          </details>
+        </div>
+      </div>`;
+    timeline.appendChild(block);
+
+    const textarea = block.querySelector(".note-input");
+    const summary = block.querySelector(".note-drop summary");
+    textarea.addEventListener("input", ()=>{
+      saveNote(noteKey, textarea.value);
+      summary.textContent = textarea.value ? "Note" : "Add note";
+    });
+  });
+}
+
+// Notes are keyed by day + meeting toggle state + block index, so each section
+// keeps its own note independent of which day/toggle you're viewing.
+function getNoteKey(dayIdx, idx, title){
+  return `weeklySchedule.note.${dayIdx}.${meetingState ? 1 : 0}.${idx}.${title}`;
+}
+
+function loadNote(key){
+  try{
+    return localStorage.getItem(key) || "";
+  } catch(e){
+    return "";
+  }
+}
+
+function saveNote(key, value){
+  try{
+    if(value){
+      localStorage.setItem(key, value);
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch(e){ /* storage unavailable — notes just won't persist */ }
+}
+
+function escapeHtml(str){
+  return String(str)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;");
+}
+
+function fullDayName(idx){
+  const names = {0:"Sunday",1:"Monday",2:"Tuesday",3:"Wednesday",4:"Thursday",5:"Friday",6:"Saturday"};
+  return names[idx];
+}
+
+render();
+</script>
+
+</body>
+</html>
