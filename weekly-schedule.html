@@ -170,6 +170,91 @@
     color:var(--text-dim);
     font-size:11px;
   }
+  .edit-day-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .edit-day-btn{
+    background:var(--bg-card);
+    border:1px solid var(--rule);
+    color:var(--text);
+    border-radius:20px;
+    padding:8px 14px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .edit-day-btn.active{
+    background:var(--accent);
+    color:#22262b;
+    border-color:var(--accent);
+  }
+  .edit-day-btn.reset{
+    color:var(--text-dim);
+  }
+  .edit-panel{
+    margin-top:10px;
+    padding-top:10px;
+    border-top:1px dashed var(--rule);
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .edit-row{
+    display:flex;
+    gap:8px;
+  }
+  .edit-row input{
+    flex:1;
+    min-width:0;
+    background:var(--bg);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    padding:7px 9px;
+  }
+  .edit-row input:focus{
+    outline:none;
+    border-color:var(--accent-dim);
+  }
+  .edit-actions{
+    display:flex;
+    gap:8px;
+  }
+  .edit-actions button{
+    background:var(--bg);
+    border:1px solid var(--rule);
+    color:var(--text);
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .edit-actions button:disabled{
+    opacity:.3;
+    cursor:not-allowed;
+  }
+  .edit-actions .delete-block{
+    margin-left:auto;
+    color:#d98f88;
+    border-color:#5a3a38;
+  }
+  .add-appointment-btn{
+    display:block;
+    width:100%;
+    margin-top:10px;
+    background:var(--accent-dim);
+    border:none;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    border-radius:10px;
+    padding:11px;
+    cursor:pointer;
+  }
   .day-total{
     font-size:13px;
     color:var(--text-dim);
@@ -423,6 +508,11 @@
     border-radius:8px;
     padding:6px 8px;
   }
+  .checklist-item.plain span:before{
+    content:"• ";
+    color:var(--sage);
+    font-weight:700;
+  }
   .checklist-item input[type="checkbox"]{
     accent-color:var(--sage);
     width:16px;
@@ -552,6 +642,10 @@
     </label>
   </div>
   <p class="day-total" id="dayTotal"></p>
+  <div class="edit-day-row">
+    <button type="button" id="editDayToggleBtn" class="edit-day-btn">✏️ Edit this day</button>
+    <button type="button" id="resetDayBtn" class="edit-day-btn reset" style="display:none;">↺ Reset to normal</button>
+  </div>
   <div class="timeline" id="timeline"></div>
 </main>
 
@@ -698,6 +792,7 @@ let selectedDayPinnedToToday = true;
 let meetingState = false;
 let journalDate = new Date();
 let journalPinnedToToday = true;
+let scheduleEditMode = false;
 
 const tabsEl = document.getElementById("tabs");
 const order = [1,2,3,4,5,6,0]; // Mon..Sun
@@ -706,13 +801,31 @@ order.forEach(idx=>{
   btn.className = "tab" + (idx===selectedDay ? " active" : "");
   btn.textContent = DAYS[idx];
   btn.dataset.idx = idx;
-  btn.onclick = ()=>{ selectedDay = idx; selectedDayPinnedToToday = (idx === todayIdx); render(); };
+  btn.onclick = ()=>{
+    selectedDay = idx;
+    selectedDayPinnedToToday = (idx === todayIdx);
+    journalDate = dateForWeekday(idx);
+    journalPinnedToToday = (formatDateStr(journalDate) === formatDateStr(new Date()));
+    render();
+    renderJournal();
+  };
   tabsEl.appendChild(btn);
 });
 
 document.getElementById("meetingToggle").addEventListener("change", (e)=>{
   meetingState = e.target.checked;
   saveNote(getMeetingKey(), meetingState ? "1" : "");
+  render();
+});
+
+document.getElementById("editDayToggleBtn").addEventListener("click", ()=>{
+  scheduleEditMode = !scheduleEditMode;
+  render();
+});
+
+document.getElementById("resetDayBtn").addEventListener("click", ()=>{
+  const dateStr = formatDateStr(dateForWeekday(selectedDay));
+  saveDayOverride(dateStr, []);
   render();
 });
 
@@ -728,7 +841,16 @@ function render(){
   toggleRow.style.display = (selectedDay===2 || selectedDay===4) ? "flex" : "none";
   document.getElementById("meetingToggle").checked = meetingState;
 
-  const items = getSchedule(selectedDay, meetingState);
+  const scheduleDate = dateForWeekday(selectedDay);
+  const scheduleDateStr = formatDateStr(scheduleDate);
+  const override = loadDayOverride(scheduleDateStr);
+  const items = override || getSchedule(selectedDay, meetingState);
+
+  const editBtn = document.getElementById("editDayToggleBtn");
+  editBtn.textContent = scheduleEditMode ? `✏️ Editing ${formatDateLabel(scheduleDate)}` : "✏️ Edit this day";
+  editBtn.classList.toggle("active", scheduleEditMode);
+  document.getElementById("resetDayBtn").style.display = override ? "inline-block" : "none";
+
   const resolvedStarts = resolveStarts(items);
   const timeline = document.getElementById("timeline");
   timeline.innerHTML = "";
@@ -772,6 +894,20 @@ function render(){
             <p class="title">${item.title}${isNow ? '<span class="now-tag">NOW</span>' : ''}</p>
           </div>
           ${item.note ? `<p class="note">${item.note}</p>` : ""}
+          ${scheduleEditMode ? `
+          <div class="edit-panel">
+            <div class="edit-row">
+              <input type="text" class="edit-time" value="${escapeHtml(item.t)}" placeholder="e.g. 6:10–8:10">
+              <input type="text" class="edit-title" value="${escapeHtml(item.title)}" placeholder="Title">
+            </div>
+            <textarea class="note-input edit-note-field" placeholder="Optional note shown under the title">${escapeHtml(item.note || "")}</textarea>
+            <div class="edit-actions">
+              <button type="button" class="move-up" ${idx===0 ? "disabled" : ""} title="Move earlier">↑</button>
+              <button type="button" class="move-down" ${idx===items.length-1 ? "disabled" : ""} title="Move later">↓</button>
+              <button type="button" class="delete-block" title="Remove for this day only">Delete</button>
+            </div>
+          </div>
+          ` : ""}
           <details class="note-drop">
             <summary>${sectionSummary(checklist, savedText)}</summary>
             <p class="section-label">Notes</p>
@@ -786,6 +922,36 @@ function render(){
         </div>
       </div>`;
     timeline.appendChild(block);
+
+    if(scheduleEditMode){
+      block.querySelector(".edit-time").addEventListener("change", (e)=>{
+        mutateDayItems(scheduleDateStr, arr=>{ arr[idx].t = e.target.value; });
+      });
+      block.querySelector(".edit-title").addEventListener("change", (e)=>{
+        mutateDayItems(scheduleDateStr, arr=>{ arr[idx].title = e.target.value; });
+      });
+      block.querySelector(".edit-note-field").addEventListener("change", (e)=>{
+        mutateDayItems(scheduleDateStr, arr=>{
+          if(e.target.value.trim()) arr[idx].note = e.target.value;
+          else delete arr[idx].note;
+        });
+      });
+      block.querySelector(".move-up").addEventListener("click", ()=>{
+        if(idx===0) return;
+        mutateDayItems(scheduleDateStr, arr=>{
+          const tmp = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = tmp;
+        });
+      });
+      block.querySelector(".move-down").addEventListener("click", ()=>{
+        if(idx===items.length-1) return;
+        mutateDayItems(scheduleDateStr, arr=>{
+          const tmp = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = tmp;
+        });
+      });
+      block.querySelector(".delete-block").addEventListener("click", ()=>{
+        mutateDayItems(scheduleDateStr, arr=>{ arr.splice(idx,1); });
+      });
+    }
 
     renderChecklist(block, noteKey, checklist);
 
@@ -825,6 +991,17 @@ function render(){
       if(e.key === "Enter"){ e.preventDefault(); addItem(); }
     });
   });
+
+  if(scheduleEditMode){
+    const addApptBtn = document.createElement("button");
+    addApptBtn.type = "button";
+    addApptBtn.className = "add-appointment-btn";
+    addApptBtn.textContent = "+ Add appointment";
+    addApptBtn.addEventListener("click", ()=>{
+      mutateDayItems(scheduleDateStr, arr=>{ arr.push({ t:"12:00", title:"New appointment" }); });
+    });
+    timeline.appendChild(addApptBtn);
+  }
 }
 
 function sectionSummary(items, text){
@@ -940,6 +1117,40 @@ function getMeetingKey(){
   return `weeklySchedule.meetingState.${todayDateStr()}`;
 }
 
+function getDayOverrideKey(dateStr){
+  return `weeklySchedule.dayOverride.${dateStr}`;
+}
+
+function loadDayOverride(dateStr){
+  const raw = noteCache[getDayOverrideKey(dateStr)];
+  if(!raw) return null;
+  try{
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch(e){
+    return null;
+  }
+}
+
+function saveDayOverride(dateStr, items){
+  saveNote(getDayOverrideKey(dateStr), (items && items.length) ? JSON.stringify(items) : "");
+}
+
+// All one-off schedule edits (add/edit/reorder/delete a block) go through here.
+// It never touches the recurring template — it only ever writes an override
+// for this one specific calendar date, so nothing else is affected.
+function mutateDayItems(dateStr, mutatorFn){
+  let workingItems = loadDayOverride(dateStr);
+  if(!workingItems){
+    // No override yet for this date — start from a fresh copy of the normal
+    // template so the shared template arrays are never mutated directly.
+    workingItems = JSON.parse(JSON.stringify(getSchedule(selectedDay, meetingState)));
+  }
+  mutatorFn(workingItems);
+  saveDayOverride(dateStr, workingItems);
+  render();
+}
+
 function loadDone(key){
   return noteCache[key] === "1";
 }
@@ -951,6 +1162,13 @@ function formatDateLabel(d){
 function parseDateStr(s){
   const [y,m,d] = s.split("-").map(Number);
   return new Date(y, m-1, d);
+}
+
+function dateForWeekday(targetIdx){
+  const d = new Date();
+  const diff = targetIdx - d.getDay();
+  d.setDate(d.getDate() + diff);
+  return d;
 }
 
 function getJournalEntryDates(){
@@ -971,6 +1189,34 @@ function journalKeys(dateStr){
     grateful: `weeklySchedule.journal.grateful.${dateStr}`,
     plan: `weeklySchedule.journal.plan.${dateStr}`,
   };
+}
+
+function renderPlainList(containerEl, key){
+  const items = loadChecklist(key);
+  containerEl.innerHTML = items.map(item=>`
+    <div class="checklist-item plain" data-id="${item.id}">
+      <span>${escapeHtml(item.text)}</span>
+      <button type="button" title="Remove">×</button>
+    </div>
+  `).join("");
+
+  containerEl.querySelectorAll(".checklist-item").forEach(row=>{
+    const id = row.dataset.id;
+    const delBtn = row.querySelector("button");
+    delBtn.addEventListener("click", ()=>{
+      const current = loadChecklist(key).filter(i=>String(i.id)!==id);
+      saveChecklist(key, current);
+      renderPlainList(containerEl, key);
+    });
+  });
+}
+
+function addPlainListItem(key, text, containerEl){
+  if(!text.trim()) return;
+  const current = loadChecklist(key);
+  current.push({ id: Date.now() + Math.random().toString(16).slice(2), text: text.trim() });
+  saveChecklist(key, current);
+  renderPlainList(containerEl, key);
 }
 
 function renderSimpleChecklist(containerEl, key){
@@ -1018,7 +1264,7 @@ function renderJournal(){
   document.getElementById("journalWeightSection").style.display = (journalDate.getDay() === 0) ? "block" : "none";
   document.getElementById("journalWeight").value = loadNote(keys.weight) || "";
   document.getElementById("journalFood").value = loadNote(keys.food) || "";
-  renderSimpleChecklist(document.getElementById("journalGratefulList"), keys.grateful);
+  renderPlainList(document.getElementById("journalGratefulList"), keys.grateful);
   renderSimpleChecklist(document.getElementById("journalPlanList"), keys.plan);
   renderJournalHistory();
 }
@@ -1079,7 +1325,7 @@ document.getElementById("journalFood").addEventListener("input", (e)=>{
 
 document.getElementById("journalGratefulAdd").addEventListener("click", ()=>{
   const input = document.getElementById("journalGratefulNew");
-  addSimpleChecklistItem(journalKeys(formatDateStr(journalDate)).grateful, input.value, document.getElementById("journalGratefulList"));
+  addPlainListItem(journalKeys(formatDateStr(journalDate)).grateful, input.value, document.getElementById("journalGratefulList"));
   input.value = "";
 });
 document.getElementById("journalGratefulNew").addEventListener("keydown", (e)=>{
