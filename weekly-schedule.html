@@ -68,6 +68,108 @@
   main{
     padding:18px 20px 0 20px;
   }
+  .journal-toggle-btn{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:var(--bg-card);
+    color:var(--text);
+    border:1px solid var(--rule);
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    margin-bottom:14px;
+  }
+  .journal-panel{
+    background:var(--bg-card);
+    border:1px solid var(--rule);
+    border-radius:12px;
+    padding:14px;
+    margin-bottom:20px;
+  }
+  .journal-date-nav{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-bottom:6px;
+  }
+  .journal-date-nav span{
+    flex:1;
+    text-align:center;
+    font-size:14px;
+    font-weight:600;
+  }
+  .journal-date-nav button{
+    background:var(--bg);
+    border:1px solid var(--rule);
+    color:var(--text);
+    border-radius:8px;
+    width:30px;
+    height:30px;
+    font-size:16px;
+    cursor:pointer;
+    flex:0 0 auto;
+  }
+  .journal-date-nav #journalTodayBtn{
+    width:auto;
+    padding:0 10px;
+    font-size:12px;
+  }
+  .journal-jump-row{
+    margin-bottom:10px;
+  }
+  .journal-date-input{
+    width:100%;
+    background:var(--bg);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    padding:7px 9px;
+    margin-bottom:6px;
+    color-scheme:dark;
+  }
+  .journal-date-input:focus{
+    outline:none;
+    border-color:var(--accent-dim);
+  }
+  .journal-history-list{
+    margin-top:8px;
+    max-height:220px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .journal-history-item{
+    display:block;
+    width:100%;
+    text-align:left;
+    background:var(--bg);
+    border:1px solid var(--rule);
+    border-radius:8px;
+    color:var(--text);
+    font-size:13px;
+    padding:7px 10px;
+    cursor:pointer;
+  }
+  .journal-history-item:hover{
+    border-color:var(--accent-dim);
+  }
+  .journal-number{
+    max-width:140px;
+  }
+  .section-label .hint{
+    text-transform:none;
+    font-weight:400;
+    letter-spacing:normal;
+    color:var(--text-dim);
+    font-size:11px;
+  }
   .day-total{
     font-size:13px;
     color:var(--text-dim);
@@ -403,6 +505,45 @@
 <nav id="tabs"></nav>
 
 <main>
+  <button type="button" class="journal-toggle-btn" id="journalToggleBtn">📓 Daily Journal</button>
+  <div class="journal-panel" id="journalPanel" style="display:none;">
+    <div class="journal-date-nav">
+      <button type="button" id="journalPrevDay" aria-label="Previous day">‹</button>
+      <span id="journalDateLabel"></span>
+      <button type="button" id="journalNextDay" aria-label="Next day">›</button>
+      <button type="button" id="journalTodayBtn">Today</button>
+    </div>
+    <div class="journal-jump-row">
+      <input type="date" id="journalDatePicker" class="journal-date-input">
+      <details class="note-drop" id="journalHistoryDrop">
+        <summary>View past entries</summary>
+        <div id="journalHistoryList" class="journal-history-list"></div>
+      </details>
+    </div>
+
+    <div id="journalWeightSection">
+      <p class="section-label">Weekly weigh-in</p>
+      <input type="number" step="0.1" inputmode="decimal" id="journalWeight" class="note-input journal-number" placeholder="Weight">
+    </div>
+
+    <p class="section-label">Food diary</p>
+    <textarea id="journalFood" class="note-input" placeholder="What did you eat today?"></textarea>
+
+    <p class="section-label">Grateful for</p>
+    <div class="checklist" id="journalGratefulList"></div>
+    <div class="checklist-add">
+      <input type="text" id="journalGratefulNew" placeholder="Add something you're grateful for">
+      <button type="button" id="journalGratefulAdd">Add</button>
+    </div>
+
+    <p class="section-label">Plan of action</p>
+    <div class="checklist" id="journalPlanList"></div>
+    <div class="checklist-add">
+      <input type="text" id="journalPlanNew" placeholder="Add a plan item">
+      <button type="button" id="journalPlanAdd">Add</button>
+    </div>
+  </div>
+
   <div class="toggle-row" id="meetingToggleRow" style="display:none;">
     <span>Meeting tonight</span>
     <label class="switch">
@@ -415,6 +556,7 @@
 </main>
 
 <footer>
+
   Tue/Thu meeting rotates — flip the toggle on whichever day it lands this week.<br>
   Weekend art block and one workout are already folded into Sat.
 </footer>
@@ -541,12 +683,21 @@ function resolveStarts(items){
   });
 }
 
-const now = new Date();
-const todayIdx = now.getDay();
-const nowMinutes = now.getHours()*60 + now.getMinutes();
+let now = new Date();
+let todayIdx = now.getDay();
+let nowMinutes = now.getHours()*60 + now.getMinutes();
+
+function refreshNow(){
+  now = new Date();
+  todayIdx = now.getDay();
+  nowMinutes = now.getHours()*60 + now.getMinutes();
+}
 
 let selectedDay = todayIdx;
+let selectedDayPinnedToToday = true;
 let meetingState = false;
+let journalDate = new Date();
+let journalPinnedToToday = true;
 
 const tabsEl = document.getElementById("tabs");
 const order = [1,2,3,4,5,6,0]; // Mon..Sun
@@ -555,12 +706,13 @@ order.forEach(idx=>{
   btn.className = "tab" + (idx===selectedDay ? " active" : "");
   btn.textContent = DAYS[idx];
   btn.dataset.idx = idx;
-  btn.onclick = ()=>{ selectedDay = idx; render(); };
+  btn.onclick = ()=>{ selectedDay = idx; selectedDayPinnedToToday = (idx === todayIdx); render(); };
   tabsEl.appendChild(btn);
 });
 
 document.getElementById("meetingToggle").addEventListener("change", (e)=>{
   meetingState = e.target.checked;
+  saveNote(getMeetingKey(), meetingState ? "1" : "");
   render();
 });
 
@@ -769,20 +921,179 @@ function saveChecklist(key, items){
   saveNote(key, items.length ? JSON.stringify(items) : "");
 }
 
+function formatDateStr(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+
 function todayDateStr(){
-  const y = now.getFullYear();
-  const m = String(now.getMonth()+1).padStart(2,"0");
-  const d = String(now.getDate()).padStart(2,"0");
-  return `${y}-${m}-${d}`;
+  return formatDateStr(now);
 }
 
 function getDoneKey(idx, title){
   return `weeklySchedule.done.${todayDateStr()}.${idx}.${title}`;
 }
 
+function getMeetingKey(){
+  return `weeklySchedule.meetingState.${todayDateStr()}`;
+}
+
 function loadDone(key){
   return noteCache[key] === "1";
 }
+
+function formatDateLabel(d){
+  return d.toLocaleDateString(undefined, { weekday:"long", month:"short", day:"numeric" });
+}
+
+function parseDateStr(s){
+  const [y,m,d] = s.split("-").map(Number);
+  return new Date(y, m-1, d);
+}
+
+function getJournalEntryDates(){
+  const set = new Set();
+  Object.keys(noteCache).forEach(key=>{
+    const m = key.match(/^weeklySchedule\.journal\.(weight|food|grateful|plan)\.(\d{4}-\d{2}-\d{2})$/);
+    if(m && noteCache[key]){
+      set.add(m[2]);
+    }
+  });
+  return Array.from(set).sort().reverse();
+}
+
+function journalKeys(dateStr){
+  return {
+    weight: `weeklySchedule.journal.weight.${dateStr}`,
+    food: `weeklySchedule.journal.food.${dateStr}`,
+    grateful: `weeklySchedule.journal.grateful.${dateStr}`,
+    plan: `weeklySchedule.journal.plan.${dateStr}`,
+  };
+}
+
+function renderSimpleChecklist(containerEl, key){
+  const items = loadChecklist(key);
+  containerEl.innerHTML = items.map(item=>`
+    <div class="checklist-item${item.done ? " checked" : ""}" data-id="${item.id}">
+      <input type="checkbox" ${item.done ? "checked" : ""}>
+      <span>${escapeHtml(item.text)}</span>
+      <button type="button" title="Remove">×</button>
+    </div>
+  `).join("");
+
+  containerEl.querySelectorAll(".checklist-item").forEach(row=>{
+    const id = row.dataset.id;
+    const cb = row.querySelector('input[type="checkbox"]');
+    const delBtn = row.querySelector("button");
+    cb.addEventListener("change", ()=>{
+      const current = loadChecklist(key);
+      const target = current.find(i=>String(i.id)===id);
+      if(target) target.done = cb.checked;
+      saveChecklist(key, current);
+      row.classList.toggle("checked", cb.checked);
+    });
+    delBtn.addEventListener("click", ()=>{
+      const current = loadChecklist(key).filter(i=>String(i.id)!==id);
+      saveChecklist(key, current);
+      renderSimpleChecklist(containerEl, key);
+    });
+  });
+}
+
+function addSimpleChecklistItem(key, text, containerEl){
+  if(!text.trim()) return;
+  const current = loadChecklist(key);
+  current.push({ id: Date.now() + Math.random().toString(16).slice(2), text: text.trim(), done:false });
+  saveChecklist(key, current);
+  renderSimpleChecklist(containerEl, key);
+}
+
+function renderJournal(){
+  const dateStr = formatDateStr(journalDate);
+  const keys = journalKeys(dateStr);
+  document.getElementById("journalDateLabel").textContent = formatDateLabel(journalDate);
+  document.getElementById("journalDatePicker").value = dateStr;
+  document.getElementById("journalWeightSection").style.display = (journalDate.getDay() === 0) ? "block" : "none";
+  document.getElementById("journalWeight").value = loadNote(keys.weight) || "";
+  document.getElementById("journalFood").value = loadNote(keys.food) || "";
+  renderSimpleChecklist(document.getElementById("journalGratefulList"), keys.grateful);
+  renderSimpleChecklist(document.getElementById("journalPlanList"), keys.plan);
+  renderJournalHistory();
+}
+
+function renderJournalHistory(){
+  const dates = getJournalEntryDates();
+  const listEl = document.getElementById("journalHistoryList");
+  if(!dates.length){
+    listEl.innerHTML = '<p class="note" style="margin:2px 0 0 0;">No past entries yet.</p>';
+    return;
+  }
+  listEl.innerHTML = dates.map(d=>`<button type="button" class="journal-history-item" data-date="${d}">${formatDateLabel(parseDateStr(d))}</button>`).join("");
+  listEl.querySelectorAll(".journal-history-item").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const targetDateStr = btn.dataset.date;
+      journalDate = parseDateStr(targetDateStr);
+      journalPinnedToToday = (targetDateStr === formatDateStr(new Date()));
+      renderJournal();
+      document.getElementById("journalHistoryDrop").open = false;
+    });
+  });
+}
+
+document.getElementById("journalToggleBtn").addEventListener("click", ()=>{
+  const panel = document.getElementById("journalPanel");
+  panel.style.display = (panel.style.display === "none") ? "block" : "none";
+});
+
+document.getElementById("journalPrevDay").addEventListener("click", ()=>{
+  journalDate.setDate(journalDate.getDate() - 1);
+  journalPinnedToToday = false;
+  renderJournal();
+});
+document.getElementById("journalNextDay").addEventListener("click", ()=>{
+  journalDate.setDate(journalDate.getDate() + 1);
+  journalPinnedToToday = (formatDateStr(journalDate) === formatDateStr(new Date()));
+  renderJournal();
+});
+document.getElementById("journalTodayBtn").addEventListener("click", ()=>{
+  journalDate = new Date();
+  journalPinnedToToday = true;
+  renderJournal();
+});
+
+document.getElementById("journalDatePicker").addEventListener("change", (e)=>{
+  if(!e.target.value) return;
+  journalDate = parseDateStr(e.target.value);
+  journalPinnedToToday = (e.target.value === formatDateStr(new Date()));
+  renderJournal();
+});
+
+document.getElementById("journalWeight").addEventListener("input", (e)=>{
+  saveNote(journalKeys(formatDateStr(journalDate)).weight, e.target.value);
+});
+document.getElementById("journalFood").addEventListener("input", (e)=>{
+  saveNote(journalKeys(formatDateStr(journalDate)).food, e.target.value);
+});
+
+document.getElementById("journalGratefulAdd").addEventListener("click", ()=>{
+  const input = document.getElementById("journalGratefulNew");
+  addSimpleChecklistItem(journalKeys(formatDateStr(journalDate)).grateful, input.value, document.getElementById("journalGratefulList"));
+  input.value = "";
+});
+document.getElementById("journalGratefulNew").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){ e.preventDefault(); document.getElementById("journalGratefulAdd").click(); }
+});
+
+document.getElementById("journalPlanAdd").addEventListener("click", ()=>{
+  const input = document.getElementById("journalPlanNew");
+  addSimpleChecklistItem(journalKeys(formatDateStr(journalDate)).plan, input.value, document.getElementById("journalPlanList"));
+  input.value = "";
+});
+document.getElementById("journalPlanNew").addEventListener("keydown", (e)=>{
+  if(e.key === "Enter"){ e.preventDefault(); document.getElementById("journalPlanAdd").click(); }
+});
 
 async function loadAllNotes(){
   const { data, error } = await supabaseClient.from("notes").select("note_key, content");
@@ -834,12 +1145,24 @@ function fullDayName(idx){
 async function init(){
   document.getElementById("dayTotal").textContent = "Loading notes…";
   await loadAllNotes();
+  meetingState = noteCache[getMeetingKey()] === "1";
   render();
+  renderJournal();
 }
 
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState === "visible"){
-    loadAllNotes().then(render);
+    refreshNow();
+    if(selectedDayPinnedToToday){
+      selectedDay = todayIdx;
+    }
+    if(journalPinnedToToday){
+      journalDate = new Date();
+    }
+    loadAllNotes().then(()=>{
+      render();
+      renderJournal();
+    });
   }
 });
 
