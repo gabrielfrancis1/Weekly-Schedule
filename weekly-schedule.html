@@ -807,6 +807,8 @@ let meetingState = false;
 let journalDate = new Date();
 let journalPinnedToToday = true;
 let scheduleEditMode = false;
+const openNoteDrops = new Set();
+let autoOpenedNowKey = null;
 
 const tabsEl = document.getElementById("tabs");
 const order = [1,2,3,4,5,6,0]; // Mon..Sun
@@ -896,6 +898,18 @@ function render(){
     const doneKey = getDoneKey(idx, item.title);
     const isDone = isToday && loadDone(doneKey);
 
+    // The current task's dropdown opens automatically once, the first time
+    // it becomes NOW. After that it just remembers whatever state you leave
+    // it in (open or closed) across re-renders — nothing snaps shut on you.
+    let dropOpen;
+    if(isNow && noteKey !== autoOpenedNowKey){
+      dropOpen = true;
+      openNoteDrops.add(noteKey);
+      autoOpenedNowKey = noteKey;
+    } else {
+      dropOpen = openNoteDrops.has(noteKey);
+    }
+
     const block = document.createElement("div");
     block.className = "block" + (isNow ? " now" : "") + (isDone ? " completed" : "");
     block.innerHTML = `
@@ -922,7 +936,7 @@ function render(){
             </div>
           </div>
           ` : ""}
-          <details class="note-drop">
+          <details class="note-drop" ${dropOpen ? "open" : ""}>
             <summary>${sectionSummary(checklist, savedText)}</summary>
             <p class="section-label">Notes</p>
             <textarea class="note-input" placeholder="Type a note for this…">${escapeHtml(savedText)}</textarea>
@@ -936,6 +950,12 @@ function render(){
         </div>
       </div>`;
     timeline.appendChild(block);
+
+    const noteDropEl = block.querySelector(".note-drop");
+    noteDropEl.addEventListener("toggle", ()=>{
+      if(noteDropEl.open) openNoteDrops.add(noteKey);
+      else openNoteDrops.delete(noteKey);
+    });
 
     if(scheduleEditMode){
       block.querySelector(".edit-time").addEventListener("change", (e)=>{
@@ -1410,6 +1430,14 @@ async function init(){
   renderJournal();
 }
 
+// Avoid rebuilding the page out from under someone mid-keystroke — the
+// periodic refresh and tab-focus refresh are conveniences, not urgent,
+// so they simply wait until the person isn't actively typing.
+function isUserTyping(){
+  const ae = document.activeElement;
+  return !!ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
+}
+
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState === "visible"){
     refreshNow();
@@ -1420,8 +1448,10 @@ document.addEventListener("visibilitychange", ()=>{
       journalDate = new Date();
     }
     loadAllNotes().then(()=>{
-      render();
-      renderJournal();
+      if(!isUserTyping()){
+        render();
+        renderJournal();
+      }
     });
   }
 });
@@ -1435,8 +1465,10 @@ setInterval(()=>{
   refreshNow();
   if(selectedDayPinnedToToday){ selectedDay = todayIdx; }
   if(journalPinnedToToday){ journalDate = new Date(); }
-  render();
-  renderJournal();
+  if(!isUserTyping()){
+    render();
+    renderJournal();
+  }
 }, 60000);
 </script>
 
