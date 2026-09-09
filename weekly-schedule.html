@@ -754,10 +754,24 @@ function getSchedule(dayIdx, meeting){
 }
 
 function parseStart(tStr){
-  const first = tStr.split("–")[0].trim();
-  if(first === "—") return null;
-  let [h,m] = first.split(":").map(Number);
-  return h*60+m;
+  const rawFirst = tStr.split("–")[0].trim();
+  if(rawFirst === "—") return null;
+  // Accept an explicit am/pm suffix (e.g. "6:10pm", "6:10 PM", "6:10p.m.")
+  // so edited or newly-added times never need to be guessed from position.
+  const cleaned = rawFirst.replace(/\./g, "").replace(/\s+/g, "").toLowerCase();
+  const ampmMatch = cleaned.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
+  if(ampmMatch){
+    let h = Number(ampmMatch[1]) % 12;
+    const m = Number(ampmMatch[2]);
+    if(ampmMatch[3] === "pm") h += 12;
+    return { minutes: h*60+m, explicit:true };
+  }
+  const parts = rawFirst.split(":");
+  if(parts.length < 2) return null;
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  if(Number.isNaN(h) || Number.isNaN(m)) return null;
+  return { minutes: h*60+m, explicit:false };
 }
 
 // Times in the schedule have no AM/PM label (e.g. "6:10" for 6:10pm Art vs
@@ -768,10 +782,10 @@ function parseStart(tStr){
 function resolveStarts(items){
   let prevMin = -1;
   return items.map(it=>{
-    const raw = parseStart(it.t);
-    if(raw === null) return null;
-    let resolved = raw;
-    if(prevMin !== -1 && raw < prevMin) resolved = raw + 720;
+    const parsed = parseStart(it.t);
+    if(parsed === null) return null;
+    let resolved = parsed.minutes;
+    if(!parsed.explicit && prevMin !== -1 && resolved < prevMin) resolved += 720;
     prevMin = resolved;
     return resolved;
   });
@@ -897,7 +911,7 @@ function render(){
           ${scheduleEditMode ? `
           <div class="edit-panel">
             <div class="edit-row">
-              <input type="text" class="edit-time" value="${escapeHtml(item.t)}" placeholder="e.g. 6:10–8:10">
+              <input type="text" class="edit-time" value="${escapeHtml(item.t)}" placeholder="e.g. 6:10pm–8:10pm">
               <input type="text" class="edit-title" value="${escapeHtml(item.title)}" placeholder="Title">
             </div>
             <textarea class="note-input edit-note-field" placeholder="Optional note shown under the title">${escapeHtml(item.note || "")}</textarea>
@@ -998,7 +1012,7 @@ function render(){
     addApptBtn.className = "add-appointment-btn";
     addApptBtn.textContent = "+ Add appointment";
     addApptBtn.addEventListener("click", ()=>{
-      mutateDayItems(scheduleDateStr, arr=>{ arr.push({ t:"12:00", title:"New appointment" }); });
+      mutateDayItems(scheduleDateStr, arr=>{ arr.push({ t:"12:00pm", title:"New appointment" }); });
     });
     timeline.appendChild(addApptBtn);
   }
@@ -1413,6 +1427,17 @@ document.addEventListener("visibilitychange", ()=>{
 });
 
 init();
+
+// Keep the "NOW" highlight (and today's date) accurate even if the page is
+// left open continuously — otherwise it only refreshes on reload or when
+// switching back to the tab.
+setInterval(()=>{
+  refreshNow();
+  if(selectedDayPinnedToToday){ selectedDay = todayIdx; }
+  if(journalPinnedToToday){ journalDate = new Date(); }
+  render();
+  renderJournal();
+}, 60000);
 </script>
 
 </body>
