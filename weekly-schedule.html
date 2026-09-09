@@ -595,6 +595,7 @@
 <nav id="tabs"></nav>
 
 <main>
+  <button type="button" class="journal-toggle-btn" id="exportDayBtn">⬇️ Download Today's Log</button>
   <button type="button" class="journal-toggle-btn" id="journalToggleBtn">📓 Daily Journal</button>
   <div class="journal-panel" id="journalPanel" style="display:none;">
     <div class="journal-date-nav">
@@ -1455,6 +1456,83 @@ document.addEventListener("visibilitychange", ()=>{
     });
   }
 });
+
+// Builds a plain-text snapshot of today: every schedule block (done or not,
+// with its note and checklist), plus the full Daily Journal for today.
+// This is a one-off download, not stored anywhere — purely for the user's
+// own record-keeping outside the app.
+function buildDayExportText(){
+  const dateStr = todayDateStr();
+  const weekday = todayIdx;
+  const override = loadDayOverride(dateStr);
+  const items = override || getSchedule(weekday, meetingState);
+  const dateLabel = formatDateLabel(now);
+
+  const lines = [];
+  lines.push(`Daily Log — ${dateLabel}`);
+  lines.push("=".repeat(44));
+  lines.push("");
+  lines.push("SCHEDULE");
+  lines.push("-".repeat(44));
+
+  items.forEach((item, idx)=>{
+    const doneKey = getDoneKey(idx, item.title);
+    const done = loadDone(doneKey);
+    const noteKey = getNoteKey(weekday, idx, item.title);
+    const noteText = loadNote(noteKey + ".text");
+    const checklist = loadChecklist(noteKey);
+
+    lines.push(`[${done ? "x" : " "}] ${item.t} — ${item.title}`);
+    if(item.note) lines.push(`      (${item.note})`);
+    if(noteText) lines.push(`      Note: ${noteText}`);
+    checklist.forEach(ci=>{
+      lines.push(`      [${ci.done ? "x" : " "}] ${ci.text}`);
+    });
+  });
+
+  lines.push("");
+  lines.push("DAILY JOURNAL");
+  lines.push("-".repeat(44));
+
+  const jKeys = journalKeys(dateStr);
+  const weight = loadNote(jKeys.weight);
+  if(weight) lines.push(`Weigh-in: ${weight}`);
+
+  const food = loadNote(jKeys.food);
+  if(food){
+    lines.push("Food diary:");
+    lines.push(food);
+  }
+
+  const grateful = loadChecklist(jKeys.grateful);
+  if(grateful.length){
+    lines.push("Grateful for:");
+    grateful.forEach(g=> lines.push(`  • ${g.text}`));
+  }
+
+  const plan = loadChecklist(jKeys.plan);
+  if(plan.length){
+    lines.push("Plan of action:");
+    plan.forEach(p=> lines.push(`  [${p.done ? "x" : " "}] ${p.text}`));
+  }
+
+  return lines.join("\n");
+}
+
+function downloadDayExport(){
+  const text = buildDayExportText();
+  const blob = new Blob([text], { type:"text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `daily-log-${todayDateStr()}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("exportDayBtn").addEventListener("click", downloadDayExport);
 
 init();
 
