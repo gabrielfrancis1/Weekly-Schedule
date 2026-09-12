@@ -242,6 +242,37 @@
     color:#d98f88;
     border-color:#5a3a38;
   }
+  .drag-handle{
+    cursor:grab;
+    color:var(--text-dim);
+    font-size:16px;
+    padding:0 4px 0 0;
+    flex:0 0 auto;
+    user-select:none;
+  }
+  .drag-handle:active{
+    cursor:grabbing;
+  }
+  .lock-tag{
+    font-size:11px;
+    opacity:.7;
+    margin-left:4px;
+  }
+  .conflict-tag{
+    color:#d98f88;
+    font-weight:700;
+  }
+  .toggle-lock{
+    white-space:nowrap;
+    font-size:12px;
+  }
+  .block.dragging{
+    opacity:.4;
+  }
+  .block.drag-over .card{
+    border-color:var(--accent);
+    border-style:dashed;
+  }
   .add-appointment-btn{
     display:block;
     width:100%;
@@ -664,84 +695,130 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
+// Every block is either:
+//   locked: true, t: "6:45am-7:45am" (or "6:00am" for a point-in-time marker)
+//     — a real-world fixed time (calls, therapy, travel, meetings). Never
+//       recalculated; dragging other blocks around it doesn't move it.
+//   locked: false, duration: <minutes>
+//     — a flexible task. Its actual clock time is always computed fresh
+//       from whatever now comes before it in the list, so dragging it (or
+//       anything before it) automatically updates its displayed time.
+
 function mwf(dayIdx){
   return [
-    {t:"6:00", title:"Wake up"},
-    {t:"6:45–7:45", title:"Morning calls", note:"6:45, 7:00, 7:30"},
-    {t:"7:55–8:25", title:"Breakfast / coffee"},
-    {t:"8:35–8:55", title:"Guitar practice"},
-    {t:"8:55–9:15", title:"Memory exercises"},
-    {t:"9:15–9:35", title:"Writing"},
-    {t:"9:45–12:00", title:"Work"},
-    {t:"12:00–12:45", title:"Workout"},
-    {t:"12:45–5:00", title:"Work", note:"Lunch + additional calls happen inside this block"},
-    {t:"5:00–5:30", title: dayIdx===1 ? "Cleaning/Travel Home" : "Cleaning"},
-    {t:"5:30–6:00", title:"Dinner"},
-    {t:"6:10–8:10", title:"Art"},
-    {t:"8:20–8:50", title:"Free time"},
-    {t:"9:00", title:"Bed — reading only"},
+    { title:"Wake up", locked:true, t:"6:00am" },
+    { title:"Morning calls", locked:true, t:"6:45am-7:45am", note:"6:45, 7:00, 7:30" },
+    { title:"Breakfast / coffee", locked:false, duration:30 },
+    { title:"Writing", locked:false, duration:15 },
+    { title:"Memory exercises", locked:false, duration:15 },
+    { title:"Work", locked:false, duration:60 },
+    { title:"Art", locked:false, duration:120, note:"Includes guitar practice — split the time however you like" },
+    { title:"Workout", locked:false, duration:60 },
+    { title:"Lunch", locked:false, duration:30 },
+    { title:"Work", locked:false, duration:300 },
+    { title:"Dinner", locked:false, duration:30 },
+    { title: dayIdx===1 ? "Free time / Cleaning" : "Free time / Cleaning", locked:false, duration:150, note: dayIdx===1 ? "Includes travel home" : undefined },
+    { title:"Bed — reading only", locked:true, t:"9:30pm" },
   ];
 }
 
 function tuesday(meeting){
-  const base = [
-    {t:"6:00", title:"Wake up"},
-    {t:"6:30–7:15", title:"Phone calls"},
-    {t:"7:15–8:00", title:"Travel / additional calls"},
-    {t:"8:00–8:20", title:"Writing"},
-    {t:"8:20–8:40", title:"Memory exercises"},
-    {t:"8:40–9:15", title:"Optional", note:"Work, art, or a friend meetup"},
-    {t:"9:15–9:30", title:"Travel"},
-    {t:"9:30–10:15", title:"Therapy"},
-    {t:"10:15–10:45", title:"Travel home"},
-    {t:"10:45–5:00", title:"Work", note:"Lunch + additional calls happen inside this block"},
-  ];
-  if(!meeting) base.push({t:"5:00–5:30", title:"Cleaning"});
-  base.push({t: meeting ? "5:00–5:30" : "5:30–6:00", title:"Dinner"});
-  if(meeting){
-    base.push({t:"6:00–8:30", title:"Meeting", note:"Travel + meeting + travel back — calls & free time happen during the drive"});
-    base.push({t:"8:30–9:00", title:"Wind down"});
-  } else {
-    base.push({t:"6:00–8:00", title:"Art"});
-    base.push({t:"8:00–8:30", title:"Free time"});
+  if(!meeting){
+    return [
+      { title:"Wake up", locked:true, t:"6:00am" },
+      { title:"Calls", locked:true, t:"6:30am-7:15am" },
+      { title:"Travel to therapy", locked:true, t:"7:15am-7:50am" },
+      { title:"Writing", locked:false, duration:15 },
+      { title:"Memory exercises", locked:false, duration:15 },
+      { title:"Work", locked:false, duration:70 },
+      { title:"Therapy", locked:true, t:"9:30am-10:15am" },
+      { title:"Travel home", locked:true, t:"10:15am-10:50am" },
+      { title:"Art", locked:false, duration:120, note:"Includes guitar practice" },
+      { title:"Work", locked:false, duration:10 },
+      { title:"Lunch", locked:false, duration:30 },
+      { title:"Work", locked:false, duration:280 },
+      { title:"Dinner", locked:false, duration:30 },
+      { title:"Free time / Cleaning", locked:false, duration:170 },
+      { title:"Bed — reading only", locked:true, t:"9:30pm" },
+    ];
   }
-  base.push({t:"9:00", title:"Bed — reading only"});
-  return base;
+  return [
+    { title:"Wake up", locked:true, t:"6:00am" },
+    { title:"Calls", locked:true, t:"6:30am-7:15am" },
+    { title:"Travel to therapy", locked:true, t:"7:15am-7:50am" },
+    { title:"Writing", locked:false, duration:15 },
+    { title:"Memory exercises", locked:false, duration:15 },
+    { title:"Free time", locked:false, duration:70 },
+    { title:"Therapy", locked:true, t:"9:30am-10:15am" },
+    { title:"Travel home", locked:true, t:"10:15am-10:50am" },
+    { title:"Work", locked:false, duration:130 },
+    { title:"Lunch", locked:false, duration:30 },
+    { title:"Work", locked:false, duration:160 },
+    { title:"Work", locked:false, duration:70 },
+    { title:"Free time", locked:false, duration:30 },
+    { title:"Dinner", locked:false, duration:30 },
+    { title:"Travel to meeting", locked:true, t:"6:25pm-7:00pm" },
+    { title:"Meeting", locked:true, t:"7:00pm-8:00pm" },
+    { title:"Travel back", locked:true, t:"8:00pm-8:35pm" },
+    { title:"Chill", locked:false, duration:15 },
+    { title:"Free time", locked:false, duration:40 },
+    { title:"Bed — reading only", locked:true, t:"9:30pm" },
+  ];
 }
 
 function thursday(meeting){
-  const base = [
-    {t:"6:00", title:"Wake up"},
-    {t:"6:30–7:15", title:"Morning calls", note:"6:30, 6:45, 7:00"},
-    {t:"7:25–7:55", title:"Breakfast / coffee"},
-  ];
-  if(!meeting) base.push({t:"8:05–8:25", title:"Guitar practice"});
-  base.push({t: !meeting ? "8:25–8:45" : "7:55–8:15", title:"Memory exercises"});
-  base.push({t: !meeting ? "8:45–9:05" : "8:15–8:35", title:"Writing"});
-  base.push({t:"9:00–5:00", title:"Work", note:"Lunch + additional calls happen inside this block"});
-  if(!meeting) base.push({t:"5:15–5:45", title:"Cleaning"});
-  base.push({t: meeting ? "5:00–5:30" : "5:45–6:15", title:"Dinner"});
-  if(meeting){
-    base.push({t:"6:30–9:00", title:"Meeting", note:"Travel + meeting + travel back — calls & free time happen during the drive. No cushion before bed tonight."});
-  } else {
-    base.push({t:"6:15–9:00", title:"Open", note:"Free time, rest, or extra work toward your weekly hours"});
+  if(!meeting){
+    return [
+      { title:"Wake up", locked:true, t:"6:00am" },
+      { title:"Calls", locked:true, t:"6:30am-7:15am" },
+      { title:"Breakfast / coffee", locked:false, duration:30 },
+      { title:"Writing", locked:false, duration:15 },
+      { title:"Memory exercises", locked:false, duration:15 },
+      { title:"Work", locked:false, duration:35 },
+      { title:"Therapy (virtual)", locked:true, t:"9:00am-9:50am" },
+      { title:"Art", locked:false, duration:120, note:"Includes guitar practice" },
+      { title:"Work", locked:false, duration:70 },
+      { title:"Lunch", locked:false, duration:30 },
+      { title:"Work", locked:false, duration:255 },
+      { title:"Dinner", locked:false, duration:30 },
+      { title:"Free time / Cleaning", locked:false, duration:120 },
+      { title:"Bed — reading only", locked:true, t:"9:30pm" },
+    ];
   }
-  base.push({t:"9:00", title:"Bed — reading only"});
-  return base;
+  return [
+    { title:"Wake up", locked:true, t:"6:00am" },
+    { title:"Calls", locked:true, t:"6:30am-7:15am" },
+    { title:"Breakfast / coffee", locked:false, duration:30 },
+    { title:"Writing", locked:false, duration:15 },
+    { title:"Memory exercises", locked:false, duration:15 },
+    { title:"Work", locked:false, duration:35 },
+    { title:"Therapy (virtual)", locked:true, t:"9:00am-9:50am" },
+    { title:"Work", locked:false, duration:190 },
+    { title:"Lunch", locked:false, duration:30 },
+    { title:"Work", locked:false, duration:135 },
+    { title:"Free time", locked:false, duration:160 },
+    { title:"Dinner", locked:false, duration:30 },
+    { title:"Travel to meeting", locked:true, t:"6:55pm-7:30pm" },
+    { title:"Meeting", locked:true, t:"7:30pm-8:30pm" },
+    { title:"Travel back", locked:true, t:"8:30pm-9:05pm" },
+    { title:"Chill", locked:false, duration:15 },
+    { title:"Free time", locked:false, duration:10 },
+    { title:"Bed — reading only", locked:true, t:"9:30pm" },
+  ];
 }
 
 const SAT = [
-  {t:"9:00–9:45", title:"Workout"},
-  {t:"10:00–11:30", title:"Art"},
-  {t:"11:30–11:50", title:"Writing"},
-  {t:"—", title:"Otherwise open"},
-  {t:"9:00", title:"Bed — reading only"},
+  { title:"Workout", locked:true, t:"9:00am-9:45am" },
+  { title:"Art", locked:false, duration:90, note:"Includes guitar practice" },
+  { title:"Writing", locked:false, duration:20 },
+  { title:"Free time", locked:false, duration:595 },
+  { title:"Bed — reading only", locked:true, t:"9:30pm" },
 ];
 
 const SUN = [
-  {t:"10:00–10:20", title:"Writing"},
-  {t:"—", title:"Otherwise open / rest"},
-  {t:"9:00", title:"Bed — reading only"},
+  { title:"Writing", locked:true, t:"10:00am-10:20am" },
+  { title:"Free time / rest", locked:false, duration:670 },
+  { title:"Bed — reading only", locked:true, t:"9:30pm" },
 ];
 
 function getSchedule(dayIdx, meeting){
@@ -754,42 +831,70 @@ function getSchedule(dayIdx, meeting){
   }
 }
 
-function parseStart(tStr){
-  const rawFirst = tStr.split("–")[0].trim();
-  if(rawFirst === "—") return null;
-  // Accept an explicit am/pm suffix (e.g. "6:10pm", "6:10 PM", "6:10p.m.")
-  // so edited or newly-added times never need to be guessed from position.
-  const cleaned = rawFirst.replace(/\./g, "").replace(/\s+/g, "").toLowerCase();
-  const ampmMatch = cleaned.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
-  if(ampmMatch){
-    let h = Number(ampmMatch[1]) % 12;
-    const m = Number(ampmMatch[2]);
-    if(ampmMatch[3] === "pm") h += 12;
-    return { minutes: h*60+m, explicit:true };
-  }
-  const parts = rawFirst.split(":");
-  if(parts.length < 2) return null;
-  const h = Number(parts[0]);
-  const m = Number(parts[1]);
-  if(Number.isNaN(h) || Number.isNaN(m)) return null;
-  return { minutes: h*60+m, explicit:false };
+function parseClock(str){
+  const cleaned = str.replace(/\./g, "").replace(/\s+/g, "").toLowerCase();
+  const m = cleaned.match(/^(\d{1,2}):(\d{2})(am|pm)$/);
+  if(!m) return null;
+  let h = Number(m[1]) % 12;
+  const min = Number(m[2]);
+  if(m[3] === "pm") h += 12;
+  return h*60 + min;
 }
 
-// Times in the schedule have no AM/PM label (e.g. "6:10" for 6:10pm Art vs
-// "6:45" for 6:45am calls) — same hour can mean either. Since each day's
-// blocks always move forward in time, we resolve AM/PM by walking the list
-// in order: if a block's raw time would go backward relative to the block
-// before it, it must have rolled into the afternoon/evening, so add 12h.
-function resolveStarts(items){
-  let prevMin = -1;
-  return items.map(it=>{
-    const parsed = parseStart(it.t);
-    if(parsed === null) return null;
-    let resolved = parsed.minutes;
-    if(!parsed.explicit && prevMin !== -1 && resolved < prevMin) resolved += 720;
-    prevMin = resolved;
-    return resolved;
+// Walks the list in order. Locked blocks use their own real time and reset
+// the running clock; flexible blocks start exactly when the previous block
+// ended and run for their duration. If a locked block's real time has
+// already passed by the time we reach it (too much flexible time piled up
+// before it), it's flagged as a conflict.
+function computeSchedule(items){
+  let cursor = null;
+  return items.map(item=>{
+    if(item.locked){
+      const parts = item.t.split("-");
+      const start = parseClock(parts[0].trim());
+      const end = parts[1] ? parseClock(parts[1].trim()) : start;
+      if(start === null) return { start:null, end:null, conflict:false };
+      const conflict = cursor !== null && start < cursor;
+      cursor = end;
+      return { start, end, conflict };
+    } else {
+      const start = cursor === null ? 0 : cursor;
+      const end = start + (item.duration || 0);
+      cursor = end;
+      return { start, end, conflict:false };
+    }
   });
+}
+
+function formatClock(mins){
+  const wrapped = ((mins % 1440) + 1440) % 1440;
+  let h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
+  const ampm = h >= 12 ? "pm" : "am";
+  let h12 = h % 12; if(h12 === 0) h12 = 12;
+  return `${h12}:${String(m).padStart(2,"0")}${ampm}`;
+}
+
+function formatDurationInput(mins){
+  const h = Math.floor(mins/60);
+  const m = mins % 60;
+  if(h && m) return `${h}h ${m}m`;
+  if(h) return `${h}h`;
+  return `${m}m`;
+}
+
+// Parses things like "1h 30m", "90m", "2h", "45" (bare number = minutes)
+function parseDurationInput(str){
+  const cleaned = str.trim().toLowerCase();
+  const hMatch = cleaned.match(/(\d+(?:\.\d+)?)\s*h/);
+  const mMatch = cleaned.match(/(\d+)\s*m/);
+  if(hMatch || mMatch){
+    const h = hMatch ? parseFloat(hMatch[1]) : 0;
+    const m = mMatch ? parseInt(mMatch[1],10) : 0;
+    return Math.round(h*60 + m);
+  }
+  const bare = parseInt(cleaned, 10);
+  return Number.isNaN(bare) ? null : bare;
 }
 
 let now = new Date();
@@ -868,7 +973,7 @@ function render(){
   editBtn.classList.toggle("active", scheduleEditMode);
   document.getElementById("resetDayBtn").style.display = override ? "inline-block" : "none";
 
-  const resolvedStarts = resolveStarts(items);
+  const computed = computeSchedule(items);
   const timeline = document.getElementById("timeline");
   timeline.innerHTML = "";
 
@@ -880,11 +985,14 @@ function render(){
   else totalLabel = "Rest day · writing only";
   document.getElementById("dayTotal").innerHTML = totalLabel;
 
+  let dragSrcIdx = null;
+
   items.forEach((item, idx)=>{
-    const startMin = resolvedStarts[idx];
+    const startMin = computed[idx].start;
+    const endMin = computed[idx].end;
+    const conflict = computed[idx].conflict;
     const isNow = selectedDay===todayIdx && startMin!==null && (()=> {
-      // highlight the block whose start time is the most recent one at or before now
-      const starts = resolvedStarts.filter(v=>v!==null);
+      const starts = computed.map(c=>c.start).filter(v=>v!==null);
       const past = starts.filter(v=>v<=nowMinutes);
       const current = past.length ? Math.max(...past) : null;
       return current === startMin;
@@ -911,24 +1019,37 @@ function render(){
       dropOpen = openNoteDrops.has(noteKey);
     }
 
+    const timeLabel = startMin === null ? "—" : (startMin === endMin ? formatClock(startMin) : `${formatClock(startMin)}–${formatClock(endMin)}`);
+
     const block = document.createElement("div");
     block.className = "block" + (isNow ? " now" : "") + (isDone ? " completed" : "");
     block.innerHTML = `
       <div class="rail"><div class="dot"></div></div>
       <div>
-        <div class="time">${item.t}</div>
+        <div class="time">${timeLabel}${conflict ? ' <span class="conflict-tag">⚠️ running late</span>' : ''}</div>
         <div class="card">
           <div class="title-row">
+            ${scheduleEditMode ? `<span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>` : ""}
             <input type="checkbox" class="task-check" ${isDone ? "checked" : ""} ${isToday ? "" : "disabled"} title="${isToday ? "Mark done" : "Only today's tasks can be marked done"}">
-            <p class="title">${item.title}${isNow ? '<span class="now-tag">NOW</span>' : ''}</p>
+            <p class="title">${item.title}${item.locked ? ' <span class="lock-tag">🔒</span>' : ''}${isNow ? '<span class="now-tag">NOW</span>' : ''}</p>
           </div>
           ${item.note ? `<p class="note">${item.note}</p>` : ""}
           ${scheduleEditMode ? `
           <div class="edit-panel">
             <div class="edit-row">
-              <input type="text" class="edit-time" value="${escapeHtml(item.t)}" placeholder="e.g. 6:10pm–8:10pm">
               <input type="text" class="edit-title" value="${escapeHtml(item.title)}" placeholder="Title">
             </div>
+            ${item.locked ? `
+            <div class="edit-row">
+              <input type="text" class="edit-locked-time" value="${escapeHtml(item.t)}" placeholder="e.g. 6:10pm-8:10pm">
+              <button type="button" class="toggle-lock" title="Switch to a flexible duration instead">🔓 Make flexible</button>
+            </div>
+            ` : `
+            <div class="edit-row">
+              <input type="text" class="edit-duration" value="${formatDurationInput(item.duration || 0)}" placeholder="e.g. 1h 30m">
+              <button type="button" class="toggle-lock" title="Switch to a fixed clock time instead">🔒 Make fixed-time</button>
+            </div>
+            `}
             <textarea class="note-input edit-note-field" placeholder="Optional note shown under the title">${escapeHtml(item.note || "")}</textarea>
             <div class="edit-actions">
               <button type="button" class="move-up" ${idx===0 ? "disabled" : ""} title="Move earlier">↑</button>
@@ -959,11 +1080,36 @@ function render(){
     });
 
     if(scheduleEditMode){
-      block.querySelector(".edit-time").addEventListener("change", (e)=>{
-        mutateDayItems(scheduleDateStr, arr=>{ arr[idx].t = e.target.value; });
-      });
       block.querySelector(".edit-title").addEventListener("change", (e)=>{
         mutateDayItems(scheduleDateStr, arr=>{ arr[idx].title = e.target.value; });
+      });
+      const lockedInput = block.querySelector(".edit-locked-time");
+      if(lockedInput){
+        lockedInput.addEventListener("change", (e)=>{
+          mutateDayItems(scheduleDateStr, arr=>{ arr[idx].t = e.target.value; });
+        });
+      }
+      const durationInput = block.querySelector(".edit-duration");
+      if(durationInput){
+        durationInput.addEventListener("change", (e)=>{
+          const mins = parseDurationInput(e.target.value);
+          if(mins !== null){
+            mutateDayItems(scheduleDateStr, arr=>{ arr[idx].duration = mins; });
+          }
+        });
+      }
+      block.querySelector(".toggle-lock").addEventListener("click", ()=>{
+        mutateDayItems(scheduleDateStr, arr=>{
+          if(arr[idx].locked){
+            arr[idx].locked = false;
+            arr[idx].duration = (endMin !== null && startMin !== null) ? Math.max(5, endMin - startMin) : 30;
+            delete arr[idx].t;
+          } else {
+            arr[idx].locked = true;
+            arr[idx].t = (startMin !== null) ? `${formatClock(startMin)}-${formatClock(endMin)}` : "12:00pm";
+            delete arr[idx].duration;
+          }
+        });
       });
       block.querySelector(".edit-note-field").addEventListener("change", (e)=>{
         mutateDayItems(scheduleDateStr, arr=>{
@@ -985,6 +1131,35 @@ function render(){
       });
       block.querySelector(".delete-block").addEventListener("click", ()=>{
         mutateDayItems(scheduleDateStr, arr=>{ arr.splice(idx,1); });
+      });
+
+      const handle = block.querySelector(".drag-handle");
+      handle.addEventListener("dragstart", (e)=>{
+        dragSrcIdx = idx;
+        block.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+      });
+      handle.addEventListener("dragend", ()=>{
+        block.classList.remove("dragging");
+        dragSrcIdx = null;
+      });
+      block.addEventListener("dragover", (e)=>{
+        e.preventDefault();
+        block.classList.add("drag-over");
+      });
+      block.addEventListener("dragleave", ()=>{
+        block.classList.remove("drag-over");
+      });
+      block.addEventListener("drop", (e)=>{
+        e.preventDefault();
+        block.classList.remove("drag-over");
+        if(dragSrcIdx === null || dragSrcIdx === idx) return;
+        const from = dragSrcIdx;
+        const to = idx;
+        mutateDayItems(scheduleDateStr, arr=>{
+          const [moved] = arr.splice(from, 1);
+          arr.splice(to, 0, moved);
+        });
       });
     }
 
@@ -1033,7 +1208,7 @@ function render(){
     addApptBtn.className = "add-appointment-btn";
     addApptBtn.textContent = "+ Add appointment";
     addApptBtn.addEventListener("click", ()=>{
-      mutateDayItems(scheduleDateStr, arr=>{ arr.push({ t:"12:00pm", title:"New appointment" }); });
+      mutateDayItems(scheduleDateStr, arr=>{ arr.push({ title:"New appointment", locked:true, t:"12:00pm-12:30pm" }); });
     });
     timeline.appendChild(addApptBtn);
   }
@@ -1466,6 +1641,7 @@ function buildDayExportText(){
   const weekday = todayIdx;
   const override = loadDayOverride(dateStr);
   const items = override || getSchedule(weekday, meetingState);
+  const computed = computeSchedule(items);
   const dateLabel = formatDateLabel(now);
 
   const lines = [];
@@ -1481,8 +1657,10 @@ function buildDayExportText(){
     const noteKey = getNoteKey(weekday, idx, item.title);
     const noteText = loadNote(noteKey + ".text");
     const checklist = loadChecklist(noteKey);
+    const { start, end } = computed[idx];
+    const timeLabel = start === null ? "—" : (start === end ? formatClock(start) : `${formatClock(start)}–${formatClock(end)}`);
 
-    lines.push(`[${done ? "x" : " "}] ${item.t} — ${item.title}`);
+    lines.push(`[${done ? "x" : " "}] ${timeLabel} — ${item.title}`);
     if(item.note) lines.push(`      (${item.note})`);
     if(noteText) lines.push(`      Note: ${noteText}`);
     checklist.forEach(ci=>{
