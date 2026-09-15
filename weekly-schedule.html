@@ -1062,7 +1062,7 @@ function render(){
     })();
 
     const categoryId = item.id || item.title;
-    const noteKey = getNoteKey(selectedDay, meetingState, categoryId);
+    const noteKey = getNoteKey(selectedDay, categoryId);
     const checklist = loadChecklist(noteKey);
     const textKey = noteKey + ".text";
     const savedText = loadNote(textKey);
@@ -1434,26 +1434,21 @@ function burst(el){
 let noteCache = {};
 const saveTimers = {};
 
-function getNoteKey(dayIdx, meetingFlag, categoryId){
-  return `weeklySchedule.note.${dayIdx}.${meetingFlag ? 1 : 0}.${categoryId}`;
+function getNoteKey(dayIdx, categoryId){
+  return `weeklySchedule.note.${dayIdx}.${categoryId}`;
 }
 
-function getMeetingStateForDate(dateStr){
-  return noteCache[`weeklySchedule.meetingState.${dateStr}`] === "1";
-}
-
-// Finds the checklist key for the first block matching a given title on a
+// Finds the checklist key for the first block matching a given category on a
 // given date (used when moving a task to "the same kind of block" on
-// another day). Returns null if that date has no block with that title.
+// another day). Returns null if that date has no matching block.
 function findBlockKeyByCategory(dateStr, categoryId, fallbackTitle){
   const d = parseDateStr(dateStr);
   const weekday = d.getDay();
-  const meetingFlag = getMeetingStateForDate(dateStr);
   const override = loadDayOverride(dateStr);
-  const items = override || getSchedule(weekday, meetingFlag);
-  const exists = items.some(it => (it.id && it.id === categoryId) || (!it.id && it.title === fallbackTitle));
+  const matches = (arr)=> arr.some(it => (it.id && it.id === categoryId) || (!it.id && it.title === fallbackTitle));
+  const exists = override ? matches(override) : (matches(getSchedule(weekday, false)) || matches(getSchedule(weekday, true)));
   if(!exists) return null;
-  return getNoteKey(weekday, meetingFlag, categoryId);
+  return getNoteKey(weekday, categoryId);
 }
 
 function loadNote(key){
@@ -1822,7 +1817,7 @@ function buildDayExportText(){
     const categoryId = item.id || item.title;
     const doneKey = getDoneKey(idx, categoryId);
     const done = loadDone(doneKey);
-    const noteKey = getNoteKey(weekday, meetingState, categoryId);
+    const noteKey = getNoteKey(weekday, categoryId);
     const noteText = loadNote(noteKey + ".text");
     const checklist = loadChecklist(noteKey);
     const { start, end } = computed[idx];
