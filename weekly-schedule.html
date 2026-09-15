@@ -1760,9 +1760,33 @@ function fullDayName(idx){
   return names[idx];
 }
 
+// One-time (per load) recovery: earlier versions of this app keyed notes and
+// checklists as weeklySchedule.note.<day>.<meetingFlag 0/1>.<categoryId>.
+// That meeting-flag segment was removed so keys stop shifting when a day's
+// meeting toggle changes — but anything already saved under the old format
+// needs to be moved over, not just abandoned. This finds those old keys and
+// copies their content into the new format (never overwriting anything
+// already there), then clears the old row.
+function migrateLegacyNoteKeys(){
+  const pattern = /^weeklySchedule\.note\.([0-6])\.(0|1)\.(.+)$/;
+  Object.keys(noteCache).forEach(oldKey=>{
+    const m = oldKey.match(pattern);
+    if(!m) return;
+    const dayIdx = m[1];
+    const rest = m[3];
+    const oldValue = noteCache[oldKey];
+    if(!oldValue) return;
+    const newKey = `weeklySchedule.note.${dayIdx}.${rest}`;
+    if(noteCache[newKey]) return; // something's already there — don't clobber it
+    saveNote(newKey, oldValue);
+    saveNote(oldKey, "");
+  });
+}
+
 async function init(){
   document.getElementById("dayTotal").textContent = "Loading notes…";
   await loadAllNotes();
+  migrateLegacyNoteKeys();
   meetingState = noteCache[getMeetingKey()] === "1";
   render();
   renderJournal();
@@ -1786,6 +1810,7 @@ document.addEventListener("visibilitychange", ()=>{
       journalDate = new Date();
     }
     loadAllNotes().then(()=>{
+      migrateLegacyNoteKeys();
       if(!isUserTyping()){
         render();
         renderJournal();
