@@ -1014,7 +1014,7 @@ function render(){
       return current === startMin;
     })();
 
-    const noteKey = getNoteKey(selectedDay, idx, item.title);
+    const noteKey = getNoteKey(selectedDay, meetingState, idx, item.title);
     const checklist = loadChecklist(noteKey);
     const textKey = noteKey + ".text";
     const savedText = loadNote(textKey);
@@ -1179,7 +1179,7 @@ function render(){
       });
     }
 
-    renderChecklist(block, noteKey, checklist);
+    renderChecklist(block, noteKey, checklist, item.title);
 
     const noteTextarea = block.querySelector(".note-input");
     noteTextarea.addEventListener("input", ()=>{
@@ -1209,7 +1209,7 @@ function render(){
       current.push({ id: Date.now() + Math.random().toString(16).slice(2), text, done:false });
       saveChecklist(noteKey, current);
       newInput.value = "";
-      renderChecklist(block, noteKey, current);
+      renderChecklist(block, noteKey, current, item.title);
       block.querySelector(".note-drop summary").textContent = sectionSummary(current, noteTextarea.value);
     };
     addBtn.addEventListener("click", addItem);
@@ -1240,7 +1240,7 @@ function sectionSummary(items, text){
   return parts.length ? parts.join(" · ") : "Add note or checklist";
 }
 
-function renderChecklist(block, noteKey, items){
+function renderChecklist(block, noteKey, items, blockTitle){
   const wrap = block.querySelector(".checklist");
   wrap.innerHTML = items.map(item=>`
     <div class="checklist-item${item.done ? " checked" : ""}" data-id="${item.id}">
@@ -1271,7 +1271,7 @@ function renderChecklist(block, noteKey, items){
     delBtn.addEventListener("click", ()=>{
       const current = loadChecklist(noteKey).filter(i=>String(i.id)!==id);
       saveChecklist(noteKey, current);
-      renderChecklist(block, noteKey, current);
+      renderChecklist(block, noteKey, current, blockTitle);
       block.querySelector(".note-drop summary").textContent = sectionSummary(current, getText());
     });
     moveBtn.addEventListener("click", ()=>{
@@ -1293,13 +1293,24 @@ function renderChecklist(block, noteKey, items){
       if(!target) return;
       const remaining = current.filter(i=>String(i.id)!==id);
       saveChecklist(noteKey, remaining);
-      const targetPlanKey = journalKeys(e.target.value).plan;
-      const planItems = loadChecklist(targetPlanKey);
-      planItems.push({ id: Date.now() + Math.random().toString(16).slice(2), text: target.text, done:false });
-      saveChecklist(targetPlanKey, planItems);
-      renderChecklist(block, noteKey, remaining);
+
+      const movedItem = { id: Date.now() + Math.random().toString(16).slice(2), text: target.text, done:false };
+      const sameBlockKey = findBlockKeyByTitle(e.target.value, blockTitle);
+      if(sameBlockKey){
+        const destItems = loadChecklist(sameBlockKey);
+        destItems.push(movedItem);
+        saveChecklist(sameBlockKey, destItems);
+      } else {
+        const planKey = journalKeys(e.target.value).plan;
+        const planItems = loadChecklist(planKey);
+        planItems.push(movedItem);
+        saveChecklist(planKey, planItems);
+      }
+
+      renderChecklist(block, noteKey, remaining, blockTitle);
       block.querySelector(".note-drop summary").textContent = sectionSummary(remaining, getText());
       if(formatDateStr(journalDate) === e.target.value) renderJournal();
+      if(scheduleDateStr === e.target.value) render();
     });
   });
 }
@@ -1332,8 +1343,26 @@ function burst(el){
 let noteCache = {};
 const saveTimers = {};
 
-function getNoteKey(dayIdx, idx, title){
-  return `weeklySchedule.note.${dayIdx}.${meetingState ? 1 : 0}.${idx}.${title}`;
+function getNoteKey(dayIdx, meetingFlag, idx, title){
+  return `weeklySchedule.note.${dayIdx}.${meetingFlag ? 1 : 0}.${idx}.${title}`;
+}
+
+function getMeetingStateForDate(dateStr){
+  return noteCache[`weeklySchedule.meetingState.${dateStr}`] === "1";
+}
+
+// Finds the checklist key for the first block matching a given title on a
+// given date (used when moving a task to "the same kind of block" on
+// another day). Returns null if that date has no block with that title.
+function findBlockKeyByTitle(dateStr, blockTitle){
+  const d = parseDateStr(dateStr);
+  const weekday = d.getDay();
+  const meetingFlag = getMeetingStateForDate(dateStr);
+  const override = loadDayOverride(dateStr);
+  const items = override || getSchedule(weekday, meetingFlag);
+  const idx = items.findIndex(it => it.title === blockTitle);
+  if(idx === -1) return null;
+  return getNoteKey(weekday, meetingFlag, idx, items[idx].title);
 }
 
 function loadNote(key){
@@ -1701,7 +1730,7 @@ function buildDayExportText(){
   items.forEach((item, idx)=>{
     const doneKey = getDoneKey(idx, item.title);
     const done = loadDone(doneKey);
-    const noteKey = getNoteKey(weekday, idx, item.title);
+    const noteKey = getNoteKey(weekday, meetingState, idx, item.title);
     const noteText = loadNote(noteKey + ".text");
     const checklist = loadChecklist(noteKey);
     const { start, end } = computed[idx];
