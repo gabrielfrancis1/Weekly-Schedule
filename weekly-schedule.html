@@ -592,7 +592,7 @@
     flex:0 0 auto;
     cursor:pointer;
   }
-  .checklist-item span{
+  .checklist-item .checklist-text{
     flex:1;
     font-size:13px;
     line-height:1.35;
@@ -769,119 +769,119 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function mwf(dayIdx){
   return [
-    { title:"Wake up", locked:true, t:"6:00am" },
-    { title:"Morning calls", locked:true, t:"6:45am-7:45am", note:"6:45, 7:00, 7:30" },
-    { title:"Breakfast / coffee", locked:false, duration:30 },
-    { title:"Writing", locked:false, duration:15 },
-    { title:"Memory exercises", locked:false, duration:15 },
-    { title:"Work", locked:false, duration:60 },
-    { title:"Art", locked:false, duration:120, note:"Includes guitar practice — split the time however you like" },
-    { title:"Workout", locked:false, duration:60 },
-    { title:"Lunch", locked:false, duration:30 },
-    { title:"Work", locked:false, duration:300 },
-    { title:"Dinner", locked:false, duration:30 },
-    { title: dayIdx===1 ? "Free time / Cleaning" : "Free time / Cleaning", locked:false, duration:150, note: dayIdx===1 ? "Includes travel home" : undefined },
-    { title:"Bed — reading only", locked:true, t:"9:30pm" },
+    { id:"wake", title:"Wake up", locked:true, t:"6:00am" },
+    { id:"calls", title:"Morning calls", locked:true, t:"6:45am-7:45am", note:"6:45, 7:00, 7:30" },
+    { id:"breakfast", title:"Breakfast / coffee", locked:false, duration:30 },
+    { id:"writing", title:"Writing", locked:false, duration:15 },
+    { id:"memory", title:"Memory exercises", locked:false, duration:15 },
+    { id:"work", title:"Work", locked:false, duration:60 },
+    { id:"art", title:"Art", locked:false, duration:120, note:"Includes guitar practice — split the time however you like" },
+    { id:"workout", title:"Workout", locked:false, duration:60 },
+    { id:"lunch", title:"Lunch", locked:false, duration:30 },
+    { id:"work", title:"Work", locked:false, duration:300 },
+    { id:"dinner", title:"Dinner", locked:false, duration:30 },
+    { id:"freeclean", title:"Free time / Cleaning", locked:false, duration:150, note: dayIdx===1 ? "Includes travel home" : undefined },
+    { id:"bed", title:"Bed — reading only", locked:true, t:"9:30pm" },
   ];
 }
 
 function tuesday(meeting){
   if(!meeting){
     return [
-      { title:"Wake up", locked:true, t:"6:00am" },
-      { title:"Calls", locked:true, t:"6:30am-7:15am" },
-      { title:"Travel to therapy", locked:true, t:"7:15am-7:50am" },
-      { title:"Writing", locked:false, duration:15 },
-      { title:"Memory exercises", locked:false, duration:15 },
-      { title:"Work", locked:false, duration:70 },
-      { title:"Therapy", locked:true, t:"9:30am-10:15am" },
-      { title:"Travel home", locked:true, t:"10:15am-10:50am" },
-      { title:"Art", locked:false, duration:120, note:"Includes guitar practice" },
-      { title:"Work", locked:false, duration:10 },
-      { title:"Lunch", locked:false, duration:30 },
-      { title:"Work", locked:false, duration:280 },
-      { title:"Dinner", locked:false, duration:30 },
-      { title:"Free time / Cleaning", locked:false, duration:170 },
-      { title:"Bed — reading only", locked:true, t:"9:30pm" },
+      { id:"wake", title:"Wake up", locked:true, t:"6:00am" },
+      { id:"calls", title:"Calls", locked:true, t:"6:30am-7:15am" },
+      { id:"travel-to-therapy", title:"Travel to therapy", locked:true, t:"7:15am-7:50am" },
+      { id:"writing", title:"Writing", locked:false, duration:15 },
+      { id:"memory", title:"Memory exercises", locked:false, duration:15 },
+      { id:"work", title:"Work", locked:false, duration:70 },
+      { id:"therapy", title:"Therapy", locked:true, t:"9:30am-10:15am" },
+      { id:"travel-home", title:"Travel home", locked:true, t:"10:15am-10:50am" },
+      { id:"art", title:"Art", locked:false, duration:120, note:"Includes guitar practice" },
+      { id:"work", title:"Work", locked:false, duration:10 },
+      { id:"lunch", title:"Lunch", locked:false, duration:30 },
+      { id:"work", title:"Work", locked:false, duration:280 },
+      { id:"dinner", title:"Dinner", locked:false, duration:30 },
+      { id:"freeclean", title:"Free time / Cleaning", locked:false, duration:170 },
+      { id:"bed", title:"Bed — reading only", locked:true, t:"9:30pm" },
     ];
   }
   return [
-    { title:"Wake up", locked:true, t:"6:00am" },
-    { title:"Calls", locked:true, t:"6:30am-7:15am" },
-    { title:"Travel to therapy", locked:true, t:"7:15am-7:50am" },
-    { title:"Writing", locked:false, duration:15 },
-    { title:"Memory exercises", locked:false, duration:15 },
-    { title:"Free time", locked:false, duration:70 },
-    { title:"Therapy", locked:true, t:"9:30am-10:15am" },
-    { title:"Travel home", locked:true, t:"10:15am-10:50am" },
-    { title:"Work", locked:false, duration:130 },
-    { title:"Lunch", locked:false, duration:30 },
-    { title:"Work", locked:false, duration:160 },
-    { title:"Work", locked:false, duration:70 },
-    { title:"Free time", locked:false, duration:30 },
-    { title:"Dinner", locked:false, duration:30 },
-    { title:"Travel to meeting", locked:true, t:"6:25pm-7:00pm" },
-    { title:"Meeting", locked:true, t:"7:00pm-8:00pm" },
-    { title:"Travel back", locked:true, t:"8:00pm-8:35pm" },
-    { title:"Chill", locked:false, duration:15 },
-    { title:"Free time", locked:false, duration:40 },
-    { title:"Bed — reading only", locked:true, t:"9:30pm" },
+    { id:"wake", title:"Wake up", locked:true, t:"6:00am" },
+    { id:"calls", title:"Calls", locked:true, t:"6:30am-7:15am" },
+    { id:"travel-to-therapy", title:"Travel to therapy", locked:true, t:"7:15am-7:50am" },
+    { id:"writing", title:"Writing", locked:false, duration:15 },
+    { id:"memory", title:"Memory exercises", locked:false, duration:15 },
+    { id:"freetime", title:"Free time", locked:false, duration:70 },
+    { id:"therapy", title:"Therapy", locked:true, t:"9:30am-10:15am" },
+    { id:"travel-home", title:"Travel home", locked:true, t:"10:15am-10:50am" },
+    { id:"work", title:"Work", locked:false, duration:130 },
+    { id:"lunch", title:"Lunch", locked:false, duration:30 },
+    { id:"work", title:"Work", locked:false, duration:160 },
+    { id:"work", title:"Work", locked:false, duration:70 },
+    { id:"freetime", title:"Free time", locked:false, duration:30 },
+    { id:"dinner", title:"Dinner", locked:false, duration:30 },
+    { id:"travel-to-meeting", title:"Travel to meeting", locked:true, t:"6:25pm-7:00pm" },
+    { id:"meeting", title:"Meeting", locked:true, t:"7:00pm-8:00pm" },
+    { id:"travel-back", title:"Travel back", locked:true, t:"8:00pm-8:35pm" },
+    { id:"chill", title:"Chill", locked:false, duration:15 },
+    { id:"freetime", title:"Free time", locked:false, duration:40 },
+    { id:"bed", title:"Bed — reading only", locked:true, t:"9:30pm" },
   ];
 }
 
 function thursday(meeting){
   if(!meeting){
     return [
-      { title:"Wake up", locked:true, t:"6:00am" },
-      { title:"Calls", locked:true, t:"6:30am-7:15am" },
-      { title:"Breakfast / coffee", locked:false, duration:30 },
-      { title:"Writing", locked:false, duration:15 },
-      { title:"Memory exercises", locked:false, duration:15 },
-      { title:"Work", locked:false, duration:35 },
-      { title:"Therapy (virtual)", locked:true, t:"9:00am-9:50am" },
-      { title:"Art", locked:false, duration:120, note:"Includes guitar practice" },
-      { title:"Work", locked:false, duration:70 },
-      { title:"Lunch", locked:false, duration:30 },
-      { title:"Work", locked:false, duration:255 },
-      { title:"Dinner", locked:false, duration:30 },
-      { title:"Free time / Cleaning", locked:false, duration:120 },
-      { title:"Bed — reading only", locked:true, t:"9:30pm" },
+      { id:"wake", title:"Wake up", locked:true, t:"6:00am" },
+      { id:"calls", title:"Calls", locked:true, t:"6:30am-7:15am" },
+      { id:"breakfast", title:"Breakfast / coffee", locked:false, duration:30 },
+      { id:"writing", title:"Writing", locked:false, duration:15 },
+      { id:"memory", title:"Memory exercises", locked:false, duration:15 },
+      { id:"work", title:"Work", locked:false, duration:35 },
+      { id:"therapy-virtual", title:"Therapy (virtual)", locked:true, t:"9:00am-9:50am" },
+      { id:"art", title:"Art", locked:false, duration:120, note:"Includes guitar practice" },
+      { id:"work", title:"Work", locked:false, duration:70 },
+      { id:"lunch", title:"Lunch", locked:false, duration:30 },
+      { id:"work", title:"Work", locked:false, duration:255 },
+      { id:"dinner", title:"Dinner", locked:false, duration:30 },
+      { id:"freeclean", title:"Free time / Cleaning", locked:false, duration:120 },
+      { id:"bed", title:"Bed — reading only", locked:true, t:"9:30pm" },
     ];
   }
   return [
-    { title:"Wake up", locked:true, t:"6:00am" },
-    { title:"Calls", locked:true, t:"6:30am-7:15am" },
-    { title:"Breakfast / coffee", locked:false, duration:30 },
-    { title:"Writing", locked:false, duration:15 },
-    { title:"Memory exercises", locked:false, duration:15 },
-    { title:"Work", locked:false, duration:35 },
-    { title:"Therapy (virtual)", locked:true, t:"9:00am-9:50am" },
-    { title:"Work", locked:false, duration:190 },
-    { title:"Lunch", locked:false, duration:30 },
-    { title:"Work", locked:false, duration:135 },
-    { title:"Free time", locked:false, duration:160 },
-    { title:"Dinner", locked:false, duration:30 },
-    { title:"Travel to meeting", locked:true, t:"6:55pm-7:30pm" },
-    { title:"Meeting", locked:true, t:"7:30pm-8:30pm" },
-    { title:"Travel back", locked:true, t:"8:30pm-9:05pm" },
-    { title:"Chill", locked:false, duration:15 },
-    { title:"Free time", locked:false, duration:10 },
-    { title:"Bed — reading only", locked:true, t:"9:30pm" },
+    { id:"wake", title:"Wake up", locked:true, t:"6:00am" },
+    { id:"calls", title:"Calls", locked:true, t:"6:30am-7:15am" },
+    { id:"breakfast", title:"Breakfast / coffee", locked:false, duration:30 },
+    { id:"writing", title:"Writing", locked:false, duration:15 },
+    { id:"memory", title:"Memory exercises", locked:false, duration:15 },
+    { id:"work", title:"Work", locked:false, duration:35 },
+    { id:"therapy-virtual", title:"Therapy (virtual)", locked:true, t:"9:00am-9:50am" },
+    { id:"work", title:"Work", locked:false, duration:190 },
+    { id:"lunch", title:"Lunch", locked:false, duration:30 },
+    { id:"work", title:"Work", locked:false, duration:135 },
+    { id:"freetime", title:"Free time", locked:false, duration:160 },
+    { id:"dinner", title:"Dinner", locked:false, duration:30 },
+    { id:"travel-to-meeting", title:"Travel to meeting", locked:true, t:"6:55pm-7:30pm" },
+    { id:"meeting", title:"Meeting", locked:true, t:"7:30pm-8:30pm" },
+    { id:"travel-back", title:"Travel back", locked:true, t:"8:30pm-9:05pm" },
+    { id:"chill", title:"Chill", locked:false, duration:15 },
+    { id:"freetime", title:"Free time", locked:false, duration:10 },
+    { id:"bed", title:"Bed — reading only", locked:true, t:"9:30pm" },
   ];
 }
 
 const SAT = [
-  { title:"Workout", locked:true, t:"9:00am-9:45am" },
-  { title:"Art", locked:false, duration:90, note:"Includes guitar practice" },
-  { title:"Writing", locked:false, duration:20 },
-  { title:"Free time", locked:false, duration:595 },
-  { title:"Bed — reading only", locked:true, t:"9:30pm" },
+  { id:"workout", title:"Workout", locked:true, t:"9:00am-9:45am" },
+  { id:"art", title:"Art", locked:false, duration:90, note:"Includes guitar practice" },
+  { id:"writing", title:"Writing", locked:false, duration:20 },
+  { id:"freetime", title:"Free time", locked:false, duration:595 },
+  { id:"bed", title:"Bed — reading only", locked:true, t:"9:30pm" },
 ];
 
 const SUN = [
-  { title:"Writing", locked:true, t:"10:00am-10:20am" },
-  { title:"Free time / rest", locked:false, duration:670 },
-  { title:"Bed — reading only", locked:true, t:"9:30pm" },
+  { id:"writing", title:"Writing", locked:true, t:"10:00am-10:20am" },
+  { id:"freetime", title:"Free time / rest", locked:false, duration:670 },
+  { id:"bed", title:"Bed — reading only", locked:true, t:"9:30pm" },
 ];
 
 function getSchedule(dayIdx, meeting){
@@ -1061,13 +1061,14 @@ function render(){
       return current === startMin;
     })();
 
-    const noteKey = getNoteKey(selectedDay, meetingState, item.title);
+    const categoryId = item.id || item.title;
+    const noteKey = getNoteKey(selectedDay, meetingState, categoryId);
     const checklist = loadChecklist(noteKey);
     const textKey = noteKey + ".text";
     const savedText = loadNote(textKey);
 
     const isToday = selectedDay === todayIdx;
-    const doneKey = getDoneKey(idx, item.title);
+    const doneKey = getDoneKey(idx, categoryId);
     const isDone = isToday && loadDone(doneKey);
 
     // The current task's dropdown opens automatically once, the first time
@@ -1232,7 +1233,7 @@ function render(){
       });
     }
 
-    renderChecklist(block, noteKey, checklist, item.title);
+    renderChecklist(block, noteKey, checklist, categoryId, item.title);
 
     const noteTextarea = block.querySelector(".note-input");
     noteTextarea.addEventListener("input", ()=>{
@@ -1278,7 +1279,7 @@ function render(){
     addApptBtn.className = "add-appointment-btn";
     addApptBtn.textContent = "+ Add appointment";
     addApptBtn.addEventListener("click", ()=>{
-      mutateDayItems(scheduleDateStr, arr=>{ arr.push({ title:"New appointment", locked:true, t:"12:00pm-12:30pm" }); });
+      mutateDayItems(scheduleDateStr, arr=>{ arr.push({ id:"custom-" + Date.now().toString(36) + Math.random().toString(36).slice(2,6), title:"New appointment", locked:true, t:"12:00pm-12:30pm" }); });
     });
     timeline.appendChild(addApptBtn);
   }
@@ -1294,13 +1295,13 @@ function sectionSummary(items, text){
   return parts.length ? parts.join(" · ") : "Add note or checklist";
 }
 
-function renderChecklist(block, noteKey, items, blockTitle){
+function renderChecklist(block, noteKey, items, categoryId, blockTitle){
   const wrap = block.querySelector(".checklist");
   wrap.innerHTML = items.map(item=>`
     <div class="checklist-item${item.done ? " checked" : ""}" data-id="${item.id}">
       <span class="checklist-drag-handle" draggable="true" title="Drag to reorder">⠿</span>
       <input type="checkbox" ${item.done ? "checked" : ""}>
-      <span>${escapeHtml(item.text)}</span>
+      <span class="checklist-text">${escapeHtml(item.text)}</span>
       <button type="button" class="move-item-btn" title="Move to another day">→</button>
       <input type="date" class="move-item-date" style="display:none;">
       <button type="button" class="move-item-confirm" style="display:none;" title="Confirm move">✓</button>
@@ -1386,7 +1387,7 @@ function renderChecklist(block, noteKey, items, blockTitle){
       saveChecklist(noteKey, remaining);
 
       const movedItem = { id: Date.now() + Math.random().toString(16).slice(2), text: target.text, done:false };
-      const sameBlockKey = findBlockKeyByTitle(dateValue, blockTitle);
+      const sameBlockKey = findBlockKeyByCategory(dateValue, categoryId, blockTitle);
       if(sameBlockKey){
         const destItems = loadChecklist(sameBlockKey);
         destItems.push(movedItem);
@@ -1433,8 +1434,8 @@ function burst(el){
 let noteCache = {};
 const saveTimers = {};
 
-function getNoteKey(dayIdx, meetingFlag, title){
-  return `weeklySchedule.note.${dayIdx}.${meetingFlag ? 1 : 0}.${title}`;
+function getNoteKey(dayIdx, meetingFlag, categoryId){
+  return `weeklySchedule.note.${dayIdx}.${meetingFlag ? 1 : 0}.${categoryId}`;
 }
 
 function getMeetingStateForDate(dateStr){
@@ -1444,15 +1445,15 @@ function getMeetingStateForDate(dateStr){
 // Finds the checklist key for the first block matching a given title on a
 // given date (used when moving a task to "the same kind of block" on
 // another day). Returns null if that date has no block with that title.
-function findBlockKeyByTitle(dateStr, blockTitle){
+function findBlockKeyByCategory(dateStr, categoryId, fallbackTitle){
   const d = parseDateStr(dateStr);
   const weekday = d.getDay();
   const meetingFlag = getMeetingStateForDate(dateStr);
   const override = loadDayOverride(dateStr);
   const items = override || getSchedule(weekday, meetingFlag);
-  const exists = items.some(it => it.title === blockTitle);
+  const exists = items.some(it => (it.id && it.id === categoryId) || (!it.id && it.title === fallbackTitle));
   if(!exists) return null;
-  return getNoteKey(weekday, meetingFlag, blockTitle);
+  return getNoteKey(weekday, meetingFlag, categoryId);
 }
 
 function loadNote(key){
@@ -1485,8 +1486,8 @@ function todayDateStr(){
   return formatDateStr(now);
 }
 
-function getDoneKey(idx, title){
-  return `weeklySchedule.done.${todayDateStr()}.${idx}.${title}`;
+function getDoneKey(idx, categoryId){
+  return `weeklySchedule.done.${todayDateStr()}.${idx}.${categoryId}`;
 }
 
 function getMeetingKey(){
@@ -1571,7 +1572,7 @@ function renderPlainList(containerEl, key){
   const items = loadChecklist(key);
   containerEl.innerHTML = items.map(item=>`
     <div class="checklist-item plain" data-id="${item.id}">
-      <span>${escapeHtml(item.text)}</span>
+      <span class="checklist-text">${escapeHtml(item.text)}</span>
       <button type="button" title="Remove">×</button>
     </div>
   `).join("");
@@ -1600,7 +1601,7 @@ function renderSimpleChecklist(containerEl, key){
   containerEl.innerHTML = items.map(item=>`
     <div class="checklist-item${item.done ? " checked" : ""}" data-id="${item.id}">
       <input type="checkbox" ${item.done ? "checked" : ""}>
-      <span>${escapeHtml(item.text)}</span>
+      <span class="checklist-text">${escapeHtml(item.text)}</span>
       <button type="button" title="Remove">×</button>
     </div>
   `).join("");
@@ -1818,9 +1819,10 @@ function buildDayExportText(){
   lines.push("-".repeat(44));
 
   items.forEach((item, idx)=>{
-    const doneKey = getDoneKey(idx, item.title);
+    const categoryId = item.id || item.title;
+    const doneKey = getDoneKey(idx, categoryId);
     const done = loadDone(doneKey);
-    const noteKey = getNoteKey(weekday, meetingState, item.title);
+    const noteKey = getNoteKey(weekday, meetingState, categoryId);
     const noteText = loadNote(noteKey + ".text");
     const checklist = loadChecklist(noteKey);
     const { start, end } = computed[idx];
