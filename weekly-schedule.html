@@ -385,6 +385,30 @@
     font-size:15px;
     font-weight:600;
     margin:0 0 2px 0;
+    flex:1;
+  }
+  .quick-move{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    flex:0 0 auto;
+    margin-left:6px;
+  }
+  .quick-move button{
+    background:none;
+    border:none;
+    color:var(--text-dim);
+    font-size:10px;
+    line-height:1;
+    padding:2px;
+    cursor:pointer;
+  }
+  .quick-move button:hover{
+    color:var(--accent);
+  }
+  .quick-move button:disabled{
+    opacity:.25;
+    cursor:not-allowed;
   }
   .title-row{
     display:flex;
@@ -586,6 +610,12 @@
     font-size:12px;
     padding:4px 6px;
     color-scheme:dark;
+    flex:0 0 auto;
+  }
+  .checklist-item .move-item-confirm{
+    color:var(--sage);
+    font-weight:700;
+    font-size:15px;
     flex:0 0 auto;
   }
   .checklist-add{
@@ -1048,6 +1078,10 @@ function render(){
             ${scheduleEditMode ? `<span class="drag-handle" draggable="true" title="Drag to reorder">⠿</span>` : ""}
             <input type="checkbox" class="task-check" ${isDone ? "checked" : ""} ${isToday ? "" : "disabled"} title="${isToday ? "Mark done" : "Only today's tasks can be marked done"}">
             <p class="title">${item.title}${item.locked ? ' <span class="lock-tag">🔒</span>' : ''}${isNow ? '<span class="now-tag">NOW</span>' : ''}</p>
+            <div class="quick-move">
+              <button type="button" class="quick-up" ${idx===0 ? "disabled" : ""} title="Move earlier">▲</button>
+              <button type="button" class="quick-down" ${idx===items.length-1 ? "disabled" : ""} title="Move later">▼</button>
+            </div>
           </div>
           ${item.note ? `<p class="note">${item.note}</p>` : ""}
           ${scheduleEditMode ? `
@@ -1068,8 +1102,6 @@ function render(){
             `}
             <textarea class="note-input edit-note-field" placeholder="Optional note shown under the title">${escapeHtml(item.note || "")}</textarea>
             <div class="edit-actions">
-              <button type="button" class="move-up" ${idx===0 ? "disabled" : ""} title="Move earlier">↑</button>
-              <button type="button" class="move-down" ${idx===items.length-1 ? "disabled" : ""} title="Move later">↓</button>
               <button type="button" class="delete-block" title="Remove for this day only">Delete</button>
             </div>
           </div>
@@ -1093,6 +1125,22 @@ function render(){
     noteDropEl.addEventListener("toggle", ()=>{
       if(noteDropEl.open) openNoteDrops.add(noteKey);
       else openNoteDrops.delete(noteKey);
+    });
+
+    // Reordering (and the times recalculating around it) works everywhere,
+    // not just in edit mode — durations stay with their block, only the
+    // position/order changes, so the computed clock time follows along.
+    block.querySelector(".quick-up").addEventListener("click", ()=>{
+      if(idx===0) return;
+      mutateDayItems(scheduleDateStr, arr=>{
+        const tmp = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = tmp;
+      });
+    });
+    block.querySelector(".quick-down").addEventListener("click", ()=>{
+      if(idx===items.length-1) return;
+      mutateDayItems(scheduleDateStr, arr=>{
+        const tmp = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = tmp;
+      });
     });
 
     if(scheduleEditMode){
@@ -1131,18 +1179,6 @@ function render(){
         mutateDayItems(scheduleDateStr, arr=>{
           if(e.target.value.trim()) arr[idx].note = e.target.value;
           else delete arr[idx].note;
-        });
-      });
-      block.querySelector(".move-up").addEventListener("click", ()=>{
-        if(idx===0) return;
-        mutateDayItems(scheduleDateStr, arr=>{
-          const tmp = arr[idx-1]; arr[idx-1] = arr[idx]; arr[idx] = tmp;
-        });
-      });
-      block.querySelector(".move-down").addEventListener("click", ()=>{
-        if(idx===items.length-1) return;
-        mutateDayItems(scheduleDateStr, arr=>{
-          const tmp = arr[idx+1]; arr[idx+1] = arr[idx]; arr[idx] = tmp;
         });
       });
       block.querySelector(".delete-block").addEventListener("click", ()=>{
@@ -1248,6 +1284,7 @@ function renderChecklist(block, noteKey, items, blockTitle){
       <span>${escapeHtml(item.text)}</span>
       <button type="button" class="move-item-btn" title="Move to another day">→</button>
       <input type="date" class="move-item-date" style="display:none;">
+      <button type="button" class="move-item-confirm" style="display:none;" title="Confirm move">✓</button>
       <button type="button" title="Remove">×</button>
     </div>
   `).join("");
@@ -1260,6 +1297,7 @@ function renderChecklist(block, noteKey, items, blockTitle){
     const delBtn = row.querySelector('button[title="Remove"]');
     const moveBtn = row.querySelector(".move-item-btn");
     const moveDate = row.querySelector(".move-item-date");
+    const moveConfirm = row.querySelector(".move-item-confirm");
     cb.addEventListener("change", ()=>{
       const current = loadChecklist(noteKey);
       const target = current.find(i=>String(i.id)===id);
@@ -1278,16 +1316,19 @@ function renderChecklist(block, noteKey, items, blockTitle){
       const showing = moveDate.style.display !== "none";
       if(showing){
         moveDate.style.display = "none";
+        moveConfirm.style.display = "none";
       } else {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate()+1);
         moveDate.value = formatDateStr(tomorrow);
         moveDate.style.display = "inline-block";
+        moveConfirm.style.display = "inline-block";
         moveDate.focus();
       }
     });
-    moveDate.addEventListener("change", (e)=>{
-      if(!e.target.value) return;
+    const performMove = ()=>{
+      const dateValue = moveDate.value;
+      if(!dateValue) return;
       const current = loadChecklist(noteKey);
       const target = current.find(i=>String(i.id)===id);
       if(!target) return;
@@ -1295,13 +1336,13 @@ function renderChecklist(block, noteKey, items, blockTitle){
       saveChecklist(noteKey, remaining);
 
       const movedItem = { id: Date.now() + Math.random().toString(16).slice(2), text: target.text, done:false };
-      const sameBlockKey = findBlockKeyByTitle(e.target.value, blockTitle);
+      const sameBlockKey = findBlockKeyByTitle(dateValue, blockTitle);
       if(sameBlockKey){
         const destItems = loadChecklist(sameBlockKey);
         destItems.push(movedItem);
         saveChecklist(sameBlockKey, destItems);
       } else {
-        const planKey = journalKeys(e.target.value).plan;
+        const planKey = journalKeys(dateValue).plan;
         const planItems = loadChecklist(planKey);
         planItems.push(movedItem);
         saveChecklist(planKey, planItems);
@@ -1309,9 +1350,10 @@ function renderChecklist(block, noteKey, items, blockTitle){
 
       renderChecklist(block, noteKey, remaining, blockTitle);
       block.querySelector(".note-drop summary").textContent = sectionSummary(remaining, getText());
-      if(formatDateStr(journalDate) === e.target.value) renderJournal();
-      if(scheduleDateStr === e.target.value) render();
-    });
+      if(formatDateStr(journalDate) === dateValue) renderJournal();
+      if(scheduleDateStr === dateValue) render();
+    };
+    moveConfirm.addEventListener("click", performMove);
   });
 }
 
