@@ -572,6 +572,22 @@
     flex:0 0 auto;
   }
   .checklist-item button:hover{color:var(--text);}
+  .checklist-item .move-item-btn{
+    color:var(--sage);
+    font-size:16px;
+    font-weight:700;
+  }
+  .checklist-item .move-item-date{
+    background:var(--bg);
+    border:1px solid var(--rule);
+    border-radius:6px;
+    color:var(--text);
+    font-family:inherit;
+    font-size:12px;
+    padding:4px 6px;
+    color-scheme:dark;
+    flex:0 0 auto;
+  }
   .checklist-add{
     display:flex;
     gap:6px;
@@ -1230,6 +1246,8 @@ function renderChecklist(block, noteKey, items){
     <div class="checklist-item${item.done ? " checked" : ""}" data-id="${item.id}">
       <input type="checkbox" ${item.done ? "checked" : ""}>
       <span>${escapeHtml(item.text)}</span>
+      <button type="button" class="move-item-btn" title="Move to another day">→</button>
+      <input type="date" class="move-item-date" style="display:none;">
       <button type="button" title="Remove">×</button>
     </div>
   `).join("");
@@ -1239,7 +1257,9 @@ function renderChecklist(block, noteKey, items){
   wrap.querySelectorAll(".checklist-item").forEach(row=>{
     const id = row.dataset.id;
     const cb = row.querySelector('input[type="checkbox"]');
-    const delBtn = row.querySelector("button");
+    const delBtn = row.querySelector('button[title="Remove"]');
+    const moveBtn = row.querySelector(".move-item-btn");
+    const moveDate = row.querySelector(".move-item-date");
     cb.addEventListener("change", ()=>{
       const current = loadChecklist(noteKey);
       const target = current.find(i=>String(i.id)===id);
@@ -1253,6 +1273,33 @@ function renderChecklist(block, noteKey, items){
       saveChecklist(noteKey, current);
       renderChecklist(block, noteKey, current);
       block.querySelector(".note-drop summary").textContent = sectionSummary(current, getText());
+    });
+    moveBtn.addEventListener("click", ()=>{
+      const showing = moveDate.style.display !== "none";
+      if(showing){
+        moveDate.style.display = "none";
+      } else {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate()+1);
+        moveDate.value = formatDateStr(tomorrow);
+        moveDate.style.display = "inline-block";
+        moveDate.focus();
+      }
+    });
+    moveDate.addEventListener("change", (e)=>{
+      if(!e.target.value) return;
+      const current = loadChecklist(noteKey);
+      const target = current.find(i=>String(i.id)===id);
+      if(!target) return;
+      const remaining = current.filter(i=>String(i.id)!==id);
+      saveChecklist(noteKey, remaining);
+      const targetPlanKey = journalKeys(e.target.value).plan;
+      const planItems = loadChecklist(targetPlanKey);
+      planItems.push({ id: Date.now() + Math.random().toString(16).slice(2), text: target.text, done:false });
+      saveChecklist(targetPlanKey, planItems);
+      renderChecklist(block, noteKey, remaining);
+      block.querySelector(".note-drop summary").textContent = sectionSummary(remaining, getText());
+      if(formatDateStr(journalDate) === e.target.value) renderJournal();
     });
   });
 }
