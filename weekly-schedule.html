@@ -1501,10 +1501,17 @@ function findBlockKeyByCategory(dateStr, categoryId, fallbackTitle){
   const d = parseDateStr(dateStr);
   const weekday = d.getDay();
   const override = loadDayOverride(dateStr);
-  const matches = (arr)=> arr.some(it => (it.id && it.id === categoryId) || (!it.id && it.title === fallbackTitle));
-  const exists = override ? matches(override) : (matches(getSchedule(weekday, false)) || matches(getSchedule(weekday, true)));
-  if(!exists) return null;
-  return getNoteKey(weekday, categoryId);
+  const norm = s => String(s || "").toLowerCase().trim();
+  const find = (arr)=> arr.find(it =>
+    (it.id && norm(it.id) === norm(categoryId)) || norm(it.title) === norm(fallbackTitle)
+  );
+  const found = override ? find(override) : (find(getSchedule(weekday, false)) || find(getSchedule(weekday, true)));
+  if(!found) return null;
+  // Key by whatever identifier the destination block itself actually uses —
+  // not the source's — so this always matches what that block will read
+  // when it renders, even if source and destination came from different
+  // schedule versions (e.g. one predates the permanent-id system).
+  return getNoteKey(weekday, found.id || found.title);
 }
 
 function loadNote(key){
