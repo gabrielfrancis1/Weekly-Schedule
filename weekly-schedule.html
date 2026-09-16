@@ -1418,32 +1418,37 @@ function renderChecklist(block, noteKey, items, categoryId, blockTitle){
         moveDate.focus();
       }
     });
-    const moveTo = (dateValue)=>{
+    const moveTo = async (dateValue)=>{
       if(!dateValue) return;
       const current = loadChecklist(noteKey);
       const target = current.find(i=>String(i.id)===id);
       if(!target) return;
       const remaining = current.filter(i=>String(i.id)!==id);
-      saveChecklist(noteKey, remaining);
 
       const movedItem = { id: Date.now() + Math.random().toString(16).slice(2), text: target.text, done:false };
       const sameBlockKey = findBlockKeyByCategory(dateValue, categoryId, blockTitle);
-      let destinationLabel;
+      let destinationLabel, destKey, destItems;
       if(sameBlockKey){
-        const destItems = loadChecklist(sameBlockKey);
+        destKey = sameBlockKey;
+        destItems = loadChecklist(sameBlockKey);
         destItems.push(movedItem);
-        saveChecklist(sameBlockKey, destItems);
         destinationLabel = `${blockTitle} on ${formatDateLabel(parseDateStr(dateValue))}`;
       } else {
-        const planKey = journalKeys(dateValue).plan;
-        const planItems = loadChecklist(planKey);
-        planItems.push(movedItem);
-        saveChecklist(planKey, planItems);
+        destKey = journalKeys(dateValue).plan;
+        destItems = loadChecklist(destKey);
+        destItems.push(movedItem);
         destinationLabel = `Plan of Action on ${formatDateLabel(parseDateStr(dateValue))}`;
       }
 
-      setSyncStatus(`Moved "${target.text}" → ${destinationLabel}`);
-      setTimeout(()=> setSyncStatus(""), 4000);
+      try{
+        await saveChecklistImmediate(destKey, destItems);
+        await saveChecklistImmediate(noteKey, remaining);
+        setSyncStatus(`Moved "${target.text}" → ${destinationLabel}`);
+        setTimeout(()=> setSyncStatus(""), 4000);
+      } catch(e){
+        setSyncStatus("Move failed — check connection and try again");
+        return;
+      }
 
       if(formatDateStr(journalDate) === dateValue) renderJournal();
       render();
@@ -1776,20 +1781,37 @@ function saveNote(key, value){
   noteCache[key] = value;
   clearTimeout(saveTimers[key]);
   setSyncStatus("Saving…");
-  saveTimers[key] = setTimeout(()=> saveNoteRemote(key, value), 600);
+  saveTimers[key] = setTimeout(()=> { saveNoteRemote(key, value).catch(()=>{}); }, 600);
+}
+
+// For discrete, deliberate actions (like moving a task) where waiting out
+// the normal debounce risks losing the write if the person navigates away
+// right after — this saves to Supabase immediately instead.
+function saveNoteImmediate(key, value){
+  noteCache[key] = value;
+  clearTimeout(saveTimers[key]);
+  setSyncStatus("Saving…");
+  return saveNoteRemote(key, value);
+}
+
+function saveChecklistImmediate(key, items){
+  return saveNoteImmediate(key, (items && items.length) ? JSON.stringify(items) : "");
 }
 
 async function saveNoteRemote(key, value){
   try{
+    let result;
     if(value){
-      await supabaseClient.from("notes").upsert({ note_key:key, content:value }, { onConflict:"note_key" });
+      result = await supabaseClient.from("notes").upsert({ note_key:key, content:value }, { onConflict:"note_key" });
     } else {
-      await supabaseClient.from("notes").delete().eq("note_key", key);
+      result = await supabaseClient.from("notes").delete().eq("note_key", key);
     }
+    if(result && result.error) throw result.error;
     setSyncStatus("Saved");
     setTimeout(()=> setSyncStatus(""), 1500);
   } catch(e){
     setSyncStatus("Couldn't sync — check connection");
+    throw e;
   }
 }
 
